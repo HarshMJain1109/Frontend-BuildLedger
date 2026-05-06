@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, Plus, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, Plus, Loader2, RefreshCw } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import {
+  Button, FormInput, FormSelect, FormTextarea, PageHeader, SectionCard,
+  Table, TableHead, TableHeader, TableBody, TableRow, TableCell,
+} from '../../components/ui';
 import { getAllCompliance, createCompliance, updateComplianceStatus } from '../../api/compliance';
 import { getAllAudits, createAudit, updateAuditStatus } from '../../api/audits';
 import { getAllContracts } from '../../api/contracts';
@@ -211,22 +215,21 @@ export default function ComplianceAudit() {
 
   return (
     <div className="animate-fadeIn space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Compliance & Audit</h2>
-          <p className="text-sm text-slate-400">{compliance.length} compliance records · {audits.length} audits</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchData} className="btn-secondary text-xs"><RefreshCw size={13} /> Refresh</button>
-          {canManage && (
-            <>
-              <button onClick={() => setShowCreateC(true)} className="btn-secondary text-xs"><Plus size={13} /> Compliance</button>
-              <button onClick={() => setShowCreateA(true)} className="btn-primary text-xs"><Plus size={13} /> Audit</button>
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Compliance & Audit"
+        subtitle={`${compliance.length} compliance records · ${audits.length} audits`}
+        actions={
+          <>
+            <Button variant="secondary" size="xs" icon={<RefreshCw size={13} />} onClick={fetchData}>Refresh</Button>
+            {canManage && (
+              <>
+                <Button variant="secondary" size="xs" icon={<Plus size={13} />} onClick={() => setShowCreateC(true)}>Compliance</Button>
+                <Button variant="primary" size="xs" icon={<Plus size={13} />} onClick={() => setShowCreateA(true)}>Audit</Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       {/* Overview row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -310,129 +313,118 @@ export default function ComplianceAudit() {
       </div>
 
       {/* Compliance Records Table */}
-      <div className="glass-card overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/40">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Compliance Records</h3>
-        </div>
+      <SectionCard title="Compliance Records">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/60 dark:bg-slate-800/50">
-              <tr>
-                {['ID', 'Contract', 'Type', 'Result', 'Date', 'Status', canManage ? 'Actions' : ''].filter(Boolean).map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {compliance.length === 0 ? (
-                <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-400">No compliance records found</td></tr>
-              ) : compliance.map(c => (
-                <tr key={c.complianceId} className="border-b border-slate-50 dark:border-slate-700/20 hover:bg-white/50 dark:hover:bg-slate-700/20 transition-colors">
-                  <td className="px-4 py-3 text-xs font-mono text-slate-400">#{c.complianceId}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 max-w-[150px]">
-                    <span className="truncate block">{contractLabel(contracts, c.contractId)}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs font-medium text-slate-700 dark:text-slate-200">{c.type || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 max-w-[120px]">
-                    <span className="truncate block">{c.result || '—'}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{c.date || '—'}</td>
-                  <td className="px-4 py-3"><Badge status={c.status} /></td>
-                  {canManage && (
-                    <td className="px-4 py-3">
-                      <ComplianceActions record={c} canManage={canManage} onTransition={handleComplianceTransition} loading={cLoading} />
-                    </td>
-                  )}
-                </tr>
+          <Table elevated={false}>
+            <TableHead>
+              {['ID', 'Contract', 'Type', 'Result', 'Date', 'Status', canManage ? 'Actions' : ''].filter(Boolean).map(h => (
+                <TableHeader key={h}>{h}</TableHeader>
               ))}
-            </tbody>
-          </table>
+            </TableHead>
+            <TableBody>
+              {compliance.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-400">No compliance records found</TableCell>
+                </TableRow>
+              ) : compliance.map(c => (
+                <TableRow key={c.complianceId}>
+                  <TableCell className="text-xs font-mono text-slate-400">#{c.complianceId}</TableCell>
+                  <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-[150px]">
+                    <span className="truncate block">{contractLabel(contracts, c.contractId)}</span>
+                  </TableCell>
+                  <TableCell className="text-xs font-medium text-slate-700 dark:text-slate-200">{c.type || '—'}</TableCell>
+                  <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-[120px]">
+                    <span className="truncate block">{c.result || '—'}</span>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-400 whitespace-nowrap">{c.date || '—'}</TableCell>
+                  <TableCell><Badge status={c.status} /></TableCell>
+                  {canManage && (
+                    <TableCell>
+                      <ComplianceActions record={c} canManage={canManage} onTransition={handleComplianceTransition} loading={cLoading} />
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Audit Records Table */}
-      <div className="glass-card overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/40">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Audit Records</h3>
-        </div>
+      <SectionCard title="Audit Records">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/60 dark:bg-slate-800/50">
-              <tr>
-                {['ID', 'Scope', 'Officer', 'Scheduled', 'Status', canManage ? 'Actions' : ''].filter(Boolean).map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+          <Table elevated={false}>
+            <TableHead>
+              {['ID', 'Scope', 'Officer', 'Scheduled', 'Status', canManage ? 'Actions' : ''].filter(Boolean).map(h => (
+                <TableHeader key={h}>{h}</TableHeader>
+              ))}
+            </TableHead>
+            <TableBody>
               {audits.length === 0 ? (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-400">No audit records found</td></tr>
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-slate-400">No audit records found</TableCell>
+                </TableRow>
               ) : audits.map(a => (
-                <tr key={a.auditId} className="border-b border-slate-50 dark:border-slate-700/20 hover:bg-white/50 dark:hover:bg-slate-700/20 transition-colors">
-                  <td className="px-4 py-3 text-xs font-mono text-slate-400">#{a.auditId}</td>
-                  <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-200 max-w-[200px]">
+                <TableRow key={a.auditId}>
+                  <TableCell className="text-xs font-mono text-slate-400">#{a.auditId}</TableCell>
+                  <TableCell className="text-xs text-slate-700 dark:text-slate-200 max-w-[200px]">
                     <p className="truncate">{a.scope || '—'}</p>
                     {a.findings && <p className="text-[10px] text-slate-400 truncate">{a.findings}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{a.officerName || `#${a.complianceOfficerId}` || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{a.date || '—'}</td>
-                  <td className="px-4 py-3"><Badge status={a.status} /></td>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{a.officerName || `#${a.complianceOfficerId}` || '—'}</TableCell>
+                  <TableCell className="text-xs text-slate-400 whitespace-nowrap">{a.date || '—'}</TableCell>
+                  <TableCell><Badge status={a.status} /></TableCell>
                   {canManage && (
-                    <td className="px-4 py-3">
+                    <TableCell>
                       <AuditActions audit={a} canManage={canManage} onTransition={handleAuditTransition} loading={aLoading} />
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Create Compliance Modal */}
       <Modal open={showCreateC} onClose={() => { setShowCreateC(false); setFormC(EMPTY_COMPLIANCE); setCErrors({}); }} title="Create Compliance Record">
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Contract *</label>
-            <select value={formC.contractId} onChange={e => { setC('contractId')(e); if (e.target.value) setCErrors(p => ({ ...p, contractId: '' })); }}
-              className={`w-full text-sm border rounded-xl px-3 py-2.5 outline-none transition-all ${cErrors.contractId ? 'border-amber-400' : ''}`}>
-              <option value="">Select contract…</option>
-              {contracts.map(c => (
-                <option key={c.contractId} value={c.contractId}>{c.vendorName || 'Unknown'} — {c.projectName || 'Unknown'} (#{c.contractId})</option>
-              ))}
-            </select>
-            {cErrors.contractId && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{cErrors.contractId}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Compliance Type *</label>
-            <select value={formC.type} onChange={e => { setC('type')(e); if (e.target.value) setCErrors(p => ({ ...p, type: '' })); }}
-              className={`w-full text-sm border rounded-xl px-3 py-2.5 outline-none transition-all ${cErrors.type ? 'border-amber-400' : ''}`}>
-              <option value="">Select type…</option>
-              {COMPLIANCE_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-            </select>
-            {cErrors.type && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{cErrors.type}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Date *</label>
-            <input type="date" max={today} value={formC.date} onChange={e => { setC('date')(e); if (e.target.value) setCErrors(p => ({ ...p, date: '' })); }}
-              className={`w-full text-sm border rounded-xl px-3 py-2.5 outline-none transition-all ${cErrors.date ? 'border-amber-400' : ''}`} />
-            {cErrors.date && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{cErrors.date}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Result</label>
-            <input value={formC.result} onChange={setC('result')} maxLength={200} placeholder="Compliance check outcome…"
-              className="w-full text-sm border rounded-xl px-3 py-2.5 outline-none transition-all" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Notes</label>
-            <textarea value={formC.notes} onChange={setC('notes')} rows={2} maxLength={1000}
-              className="w-full text-sm border rounded-xl px-3 py-2.5 outline-none resize-none transition-all" />
-          </div>
+          <FormSelect
+            label="Contract"
+            required
+            value={formC.contractId}
+            onChange={e => { setC('contractId')(e); if (e.target.value) setCErrors(p => ({ ...p, contractId: '' })); }}
+            error={cErrors.contractId}
+          >
+            <option value="">Select contract…</option>
+            {contracts.map(c => (
+              <option key={c.contractId} value={c.contractId}>{c.vendorName || 'Unknown'} — {c.projectName || 'Unknown'} (#{c.contractId})</option>
+            ))}
+          </FormSelect>
+          <FormSelect
+            label="Compliance Type"
+            required
+            value={formC.type}
+            onChange={e => { setC('type')(e); if (e.target.value) setCErrors(p => ({ ...p, type: '' })); }}
+            error={cErrors.type}
+          >
+            <option value="">Select type…</option>
+            {COMPLIANCE_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+          </FormSelect>
+          <FormInput
+            label="Date"
+            required
+            type="date"
+            max={today}
+            value={formC.date}
+            onChange={e => { setC('date')(e); if (e.target.value) setCErrors(p => ({ ...p, date: '' })); }}
+            error={cErrors.date}
+          />
+          <FormInput label="Result" value={formC.result} onChange={setC('result')} placeholder="Compliance check outcome…" />
+          <FormTextarea label="Notes" value={formC.notes} onChange={setC('notes')} rows={2} />
           <div className="flex gap-2 justify-end pt-2">
-            <button className="btn-secondary text-xs" onClick={() => { setShowCreateC(false); setFormC(EMPTY_COMPLIANCE); setCErrors({}); }}>Cancel</button>
-            <button className="btn-primary text-xs" onClick={handleCreateCompliance} disabled={saving}>
-              {saving ? <Loader2 size={12} className="animate-spin" /> : 'Create'}
-            </button>
+            <Button variant="secondary" size="xs" onClick={() => { setShowCreateC(false); setFormC(EMPTY_COMPLIANCE); setCErrors({}); }}>Cancel</Button>
+            <Button variant="primary" size="xs" onClick={handleCreateCompliance} loading={saving}>Create</Button>
           </div>
         </div>
       </Modal>
@@ -440,40 +432,40 @@ export default function ComplianceAudit() {
       {/* Create Audit Modal */}
       <Modal open={showCreateA} onClose={() => { setShowCreateA(false); setFormA(EMPTY_AUDIT); setAErrors({}); }} title="Schedule Audit">
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Compliance Officer *</label>
-            <select value={formA.complianceOfficerId} onChange={e => { setA('complianceOfficerId')(e); if (e.target.value) setAErrors(p => ({ ...p, complianceOfficerId: '' })); }}
-              className={`w-full text-sm border rounded-xl px-3 py-2.5 outline-none transition-all ${aErrors.complianceOfficerId ? 'border-amber-400' : ''}`}>
-              <option value="">Select officer…</option>
-              {officers.map(o => <option key={o.userId} value={o.userId}>{o.name || o.username} ({o.role})</option>)}
-            </select>
-            {aErrors.complianceOfficerId
-              ? <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{aErrors.complianceOfficerId}</p>
-              : officers.length === 0 && <p className="text-xs text-amber-500 mt-1">No compliance officers found.</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Scope * <span className="text-slate-400 font-normal">(min 5 chars)</span></label>
-            <textarea value={formA.scope} onChange={e => { setA('scope')(e); if (e.target.value.trim().length >= 5) setAErrors(p => ({ ...p, scope: '' })); }} rows={3} maxLength={300}
-              placeholder="Describe what this audit covers…"
-              className={`w-full text-sm border rounded-xl px-3 py-2.5 outline-none resize-none transition-all ${aErrors.scope ? 'border-amber-400' : ''}`} />
-            {aErrors.scope && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{aErrors.scope}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Scheduled Date *</label>
-            <input type="date" min={today} value={formA.date} onChange={e => { setA('date')(e); if (e.target.value) setAErrors(p => ({ ...p, date: '' })); }}
-              className={`w-full text-sm border rounded-xl px-3 py-2.5 outline-none transition-all ${aErrors.date ? 'border-amber-400' : ''}`} />
-            {aErrors.date && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{aErrors.date}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">Initial Findings <span className="text-slate-400 font-normal">(optional)</span></label>
-            <textarea value={formA.findings} onChange={setA('findings')} rows={2} maxLength={2000}
-              className="w-full text-sm border rounded-xl px-3 py-2.5 outline-none resize-none transition-all" />
-          </div>
+          <FormSelect
+            label="Compliance Officer"
+            required
+            value={formA.complianceOfficerId}
+            onChange={e => { setA('complianceOfficerId')(e); if (e.target.value) setAErrors(p => ({ ...p, complianceOfficerId: '' })); }}
+            error={aErrors.complianceOfficerId}
+            hint={officers.length === 0 ? 'No compliance officers found.' : ''}
+          >
+            <option value="">Select officer…</option>
+            {officers.map(o => <option key={o.userId} value={o.userId}>{o.name || o.username} ({o.role})</option>)}
+          </FormSelect>
+          <FormTextarea
+            label="Scope"
+            required
+            hint="(min 5 chars)"
+            value={formA.scope}
+            onChange={e => { setA('scope')(e); if (e.target.value.trim().length >= 5) setAErrors(p => ({ ...p, scope: '' })); }}
+            rows={3}
+            placeholder="Describe what this audit covers…"
+            error={aErrors.scope}
+          />
+          <FormInput
+            label="Scheduled Date"
+            required
+            type="date"
+            min={today}
+            value={formA.date}
+            onChange={e => { setA('date')(e); if (e.target.value) setAErrors(p => ({ ...p, date: '' })); }}
+            error={aErrors.date}
+          />
+          <FormTextarea label="Initial Findings" hint="(optional)" value={formA.findings} onChange={setA('findings')} rows={2} />
           <div className="flex gap-2 justify-end pt-2">
-            <button className="btn-secondary text-xs" onClick={() => { setShowCreateA(false); setFormA(EMPTY_AUDIT); setAErrors({}); }}>Cancel</button>
-            <button className="btn-primary text-xs" onClick={handleCreateAudit} disabled={saving}>
-              {saving ? <Loader2 size={12} className="animate-spin" /> : 'Schedule Audit'}
-            </button>
+            <Button variant="secondary" size="xs" onClick={() => { setShowCreateA(false); setFormA(EMPTY_AUDIT); setAErrors({}); }}>Cancel</Button>
+            <Button variant="primary" size="xs" onClick={handleCreateAudit} loading={saving}>Schedule Audit</Button>
           </div>
         </div>
       </Modal>

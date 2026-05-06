@@ -2,11 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, CheckCircle2, Circle, XCircle, Clock, Loader2, RefreshCw,
   FileText, ChevronRight, AlertTriangle, Zap, Archive, Trash2, Edit3,
-  ClipboardList, ArrowRight, Shield, AlertCircle,
+  ClipboardList, ArrowRight, Shield,
 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import Modal from '../../components/ui/Modal';
+import {
+  Button, FormInput, FormSelect, FormTextarea, InfoBox, PageHeader, StatusCards,
+} from '../../components/ui';
 import {
   getAllContracts, createContract, updateContract, deleteContract,
   updateContractStatus, getContractTerms, addContractTerm,
@@ -16,7 +19,6 @@ import { getAllProjects } from '../../api/projects';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
-// Backend statuses: DRAFT → ACTIVE → COMPLETED | TERMINATED | EXPIRED
 function statusMeta(status) {
   return {
     DRAFT:      { label: 'Draft',      color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',  idx: 0, progress: 5   },
@@ -27,16 +29,24 @@ function statusMeta(status) {
   }[status] ?? { label: status, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', idx: 0, progress: 10 };
 }
 
-// Timeline stages that match actual backend lifecycle
 const TIMELINE_STAGES = ['Draft', 'Active', 'Closed'];
 function stageIndex(status) {
-  if (status === 'DRAFT')      return 0;
-  if (status === 'ACTIVE')     return 1;
-  return 2; // COMPLETED, TERMINATED, EXPIRED
+  if (status === 'DRAFT')  return 0;
+  if (status === 'ACTIVE') return 1;
+  return 2;
 }
 
+const STATUS_OPTIONS = [
+  { key: 'ALL',        label: 'All',        color: '#64748b' },
+  { key: 'DRAFT',      label: 'Draft',      color: '#F59E0B' },
+  { key: 'ACTIVE',     label: 'Active',     color: '#22C55E' },
+  { key: 'COMPLETED',  label: 'Completed',  color: '#2563EB' },
+  { key: 'TERMINATED', label: 'Terminated', color: '#EF4444' },
+  { key: 'EXPIRED',    label: 'Expired',    color: '#94a3b8' },
+];
+
 function ContractTimeline({ status }) {
-  const activeIdx = stageIndex(status);
+  const activeIdx    = stageIndex(status);
   const isTerminated = status === 'TERMINATED';
   const isExpired    = status === 'EXPIRED';
   const isCompleted  = status === 'COMPLETED';
@@ -83,7 +93,6 @@ function ContractTimeline({ status }) {
   );
 }
 
-// Status action buttons — what transitions are allowed from current status
 function LifecycleActions({ contract, onStatusChange, canManage }) {
   const [loading, setLoading] = useState(null);
 
@@ -91,12 +100,12 @@ function LifecycleActions({ contract, onStatusChange, canManage }) {
 
   const actions = [];
   if (contract.status === 'DRAFT') {
-    actions.push({ label: 'Activate Contract', status: 'ACTIVE', color: '#22C55E', icon: Zap });
-    actions.push({ label: 'Delete Draft', status: '__DELETE__', color: '#EF4444', icon: Trash2 });
+    actions.push({ label: 'Activate Contract', status: 'ACTIVE',     color: '#22C55E', icon: Zap      });
+    actions.push({ label: 'Delete Draft',       status: '__DELETE__', color: '#EF4444', icon: Trash2   });
   } else if (contract.status === 'ACTIVE') {
-    actions.push({ label: 'Mark Completed', status: 'COMPLETED',  color: '#2563EB',  icon: CheckCircle2 });
-    actions.push({ label: 'Terminate',      status: 'TERMINATED', color: '#EF4444',  icon: XCircle      });
-    actions.push({ label: 'Mark Expired',   status: 'EXPIRED',    color: '#94a3b8',  icon: Archive      });
+    actions.push({ label: 'Mark Completed', status: 'COMPLETED',  color: '#2563EB', icon: CheckCircle2 });
+    actions.push({ label: 'Terminate',      status: 'TERMINATED', color: '#EF4444', icon: XCircle      });
+    actions.push({ label: 'Mark Expired',   status: 'EXPIRED',    color: '#94a3b8', icon: Archive      });
   }
 
   if (actions.length === 0) return (
@@ -105,11 +114,8 @@ function LifecycleActions({ contract, onStatusChange, canManage }) {
 
   const handle = async (action) => {
     setLoading(action.status);
-    try {
-      await onStatusChange(action.status);
-    } finally {
-      setLoading(null);
-    }
+    try { await onStatusChange(action.status); }
+    finally { setLoading(null); }
   };
 
   return (
@@ -124,10 +130,7 @@ function LifecycleActions({ contract, onStatusChange, canManage }) {
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white transition-all disabled:opacity-50"
             style={{ background: a.color, boxShadow: `0 2px 8px ${a.color}55` }}
           >
-            {loading === a.status
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Icon size={12} />
-            }
+            {loading === a.status ? <Loader2 size={12} className="animate-spin" /> : <Icon size={12} />}
             {a.label}
           </button>
         );
@@ -183,9 +186,9 @@ function ContractTermsTab({ contractId, isDraft, canManage }) {
               {i + 1}
             </span>
             <div className="flex-1">
-              <p className="text-sm text-slate-700">{t.description}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-200">{t.description}</p>
               {t.complianceFlag && (
-                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
                   <Shield size={9} /> Compliance Required
                 </span>
               )}
@@ -196,26 +199,21 @@ function ContractTermsTab({ contractId, isDraft, canManage }) {
 
       {canManage && isDraft && (
         <div className="pt-2 space-y-2">
-          <textarea
+          <FormTextarea
             value={newTerm}
             onChange={e => { setNewTerm(e.target.value); if (e.target.value.trim()) setTermError(''); }}
             placeholder="Add a new contract term…"
             rows={2}
-            className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all resize-none ${termError ? 'border-amber-400 bg-amber-50/40' : 'border-slate-200'}`}
+            error={termError}
           />
-          {termError && (
-            <p className="flex items-center gap-1 text-xs text-amber-500 mt-1">
-              <AlertCircle size={11} className="shrink-0" /> {termError}
-            </p>
-          )}
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
               <input type="checkbox" checked={flag} onChange={e => setFlag(e.target.checked)} className="accent-amber-500" />
               Mark as compliance-required
             </label>
-            <button onClick={handleAdd} disabled={adding || !newTerm.trim()} className="btn-primary text-xs">
-              {adding ? <><Loader2 size={11} className="animate-spin" /> Adding…</> : 'Add Term'}
-            </button>
+            <Button variant="primary" size="xs" onClick={handleAdd} disabled={adding || !newTerm.trim()} loading={adding}>
+              Add Term
+            </Button>
           </div>
         </div>
       )}
@@ -224,10 +222,10 @@ function ContractTermsTab({ contractId, isDraft, canManage }) {
 }
 
 function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, canManage }) {
-  const [tab, setTab]    = useState('details');
+  const [tab, setTab]         = useState('details');
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]   = useState(false);
   const [editErrors, setEditErrors] = useState({});
 
   const validateEdit = () => {
@@ -303,7 +301,7 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
   };
 
   const setF = (k) => (e) => setEditForm((p) => ({ ...p, [k]: e.target.value }));
-  const activeVendors  = vendors.filter(v => v.status === 'ACTIVE');
+  const activeVendors = vendors.filter(v => v.status === 'ACTIVE');
 
   return (
     <Modal open={!!contract} onClose={onClose} title={`Contract #${contract.contractId}`} wide>
@@ -355,73 +353,42 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
                   ].map(([k, v]) => (
                     <div key={k}>
                       <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">{k}</p>
-                      <p className="text-sm font-medium text-slate-800">{v}</p>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{v}</p>
                     </div>
                   ))}
                 </div>
                 {contract.description && (
                   <div className="p-3 rounded-xl" style={{ background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.1)' }}>
                     <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-1">Description</p>
-                    <p className="text-sm text-slate-600 leading-relaxed">{contract.description}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{contract.description}</p>
                   </div>
                 )}
                 <div className="flex gap-2 justify-end">
                   {canManage && isDraft && (
-                    <button className="btn-secondary text-xs" onClick={openEdit}><Edit3 size={12} /> Edit</button>
+                    <Button variant="secondary" size="xs" icon={<Edit3 size={12} />} onClick={openEdit}>Edit</Button>
                   )}
-                  <button className="btn-secondary text-xs" onClick={onClose}>Close</button>
+                  <Button variant="secondary" size="xs" onClick={onClose}>Close</Button>
                 </div>
               </>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Vendor *</label>
-                    <select value={editForm.vendorId} onChange={setF('vendorId')}
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.vendorId ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`}>
-                      <option value="">Select vendor…</option>
-                      {activeVendors.map(v => <option key={v.vendorId} value={v.vendorId}>{v.name}</option>)}
-                    </select>
-                    {editErrors.vendorId && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.vendorId}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Project *</label>
-                    <select value={editForm.projectId} onChange={setF('projectId')}
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.projectId ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`}>
-                      <option value="">Select project…</option>
-                      {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.name}</option>)}
-                    </select>
-                    {editErrors.projectId && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.projectId}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Start Date *</label>
-                    <input type="date" value={editForm.startDate} onChange={setF('startDate')}
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.startDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.startDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.startDate}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">End Date *</label>
-                    <input type="date" value={editForm.endDate} onChange={setF('endDate')}
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.endDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.endDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.endDate}</p>}
-                  </div>
+                  <FormSelect label="Vendor" required value={editForm.vendorId} onChange={setF('vendorId')} error={editErrors.vendorId}>
+                    <option value="">Select vendor…</option>
+                    {activeVendors.map(v => <option key={v.vendorId} value={v.vendorId}>{v.name}</option>)}
+                  </FormSelect>
+                  <FormSelect label="Project" required value={editForm.projectId} onChange={setF('projectId')} error={editErrors.projectId}>
+                    <option value="">Select project…</option>
+                    {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.name}</option>)}
+                  </FormSelect>
+                  <FormInput label="Start Date" required type="date" value={editForm.startDate} onChange={setF('startDate')} error={editErrors.startDate} />
+                  <FormInput label="End Date" required type="date" value={editForm.endDate} onChange={setF('endDate')} error={editErrors.endDate} />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Contract Value ($) *</label>
-                  <input type="number" value={editForm.value} onChange={setF('value')} placeholder="0.00"
-                    className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.value ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                  {editErrors.value && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.value}</p>}
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Description</label>
-                  <textarea value={editForm.description} onChange={setF('description')} rows={3}
-                    className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400 resize-none" />
-                </div>
+                <FormInput label="Contract Value ($)" required type="number" value={editForm.value} onChange={setF('value')} placeholder="0.00" error={editErrors.value} />
+                <FormTextarea label="Description" value={editForm.description} onChange={setF('description')} rows={3} />
                 <div className="flex gap-2 justify-end">
-                  <button className="btn-secondary text-xs" onClick={() => { setEditing(false); setEditErrors({}); }}>Cancel</button>
-                  <button className="btn-primary text-xs" onClick={handleSave} disabled={saving}>
-                    {saving ? <><Loader2 size={11} className="animate-spin" /> Saving…</> : 'Save Changes'}
-                  </button>
+                  <Button variant="secondary" size="xs" onClick={() => { setEditing(false); setEditErrors({}); }}>Cancel</Button>
+                  <Button variant="primary" size="xs" onClick={handleSave} loading={saving}>Save Changes</Button>
                 </div>
               </div>
             )}
@@ -438,8 +405,8 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
           <div className="space-y-4">
             <div className="p-3 rounded-xl text-sm"
               style={{ background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.1)' }}>
-              <p className="text-xs text-slate-500 font-semibold mb-1 uppercase tracking-wide">Allowed Transitions</p>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wide">Allowed Transitions</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 {contract.status === 'DRAFT'     && 'DRAFT → ACTIVE (activate), or delete this draft.'}
                 {contract.status === 'ACTIVE'    && 'ACTIVE → COMPLETED, TERMINATED, or EXPIRED.'}
                 {['COMPLETED','TERMINATED','EXPIRED'].includes(contract.status) && 'This contract is in a terminal state.'}
@@ -519,11 +486,10 @@ export default function ContractManagement() {
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
-  // Summary counts by status
   const counts = { ALL: contracts.length, DRAFT: 0, ACTIVE: 0, COMPLETED: 0, TERMINATED: 0, EXPIRED: 0 };
   contracts.forEach(c => { if (counts[c.status] !== undefined) counts[c.status]++; });
 
-  const displayed = filterStatus === 'ALL' ? contracts : contracts.filter(c => c.status === filterStatus);
+  const displayed     = filterStatus === 'ALL' ? contracts : contracts.filter(c => c.status === filterStatus);
   const activeVendors = vendors.filter(v => v.status === 'ACTIVE');
 
   if (loading) return (
@@ -535,40 +501,21 @@ export default function ContractManagement() {
 
   return (
     <div className="animate-fadeIn space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Contract Management</h2>
-          <p className="text-sm text-slate-400">{contracts.length} contracts · Lifecycle: DRAFT → ACTIVE → CLOSED</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchData} className="btn-secondary text-xs"><RefreshCw size={13} /> Refresh</button>
-          {canManage && (
-            <button className="btn-primary text-xs" onClick={() => setShowCreate(true)}>
-              <Plus size={14} /> New Contract
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Contract Management"
+        subtitle={`${contracts.length} contracts · Lifecycle: DRAFT → ACTIVE → CLOSED`}
+        actions={
+          <>
+            <Button variant="secondary" size="xs" icon={<RefreshCw size={13} />} onClick={fetchData}>Refresh</Button>
+            {canManage && (
+              <Button variant="primary" size="xs" icon={<Plus size={14} />} onClick={() => setShowCreate(true)}>New Contract</Button>
+            )}
+          </>
+        }
+      />
 
       {/* Status filter cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        {[
-          { key: 'ALL',        label: 'All',        color: '#64748b' },
-          { key: 'DRAFT',      label: 'Draft',      color: '#F59E0B' },
-          { key: 'ACTIVE',     label: 'Active',     color: '#22C55E' },
-          { key: 'COMPLETED',  label: 'Completed',  color: '#2563EB' },
-          { key: 'TERMINATED', label: 'Terminated', color: '#EF4444' },
-          { key: 'EXPIRED',    label: 'Expired',    color: '#94a3b8' },
-        ].map(s => (
-          <button key={s.key} onClick={() => setFilterStatus(s.key)}
-            className="glass-card p-3 text-center transition-all"
-            style={filterStatus === s.key ? { borderColor: s.color, borderWidth: 2, transform: 'translateY(-2px)' } : {}}>
-            <p className="text-xl font-bold" style={{ color: s.color }}>{counts[s.key] ?? 0}</p>
-            <p className="text-[10px] text-slate-400 font-medium">{s.label}</p>
-          </button>
-        ))}
-      </div>
+      <StatusCards options={STATUS_OPTIONS} counts={counts} value={filterStatus} onChange={setFilterStatus} cols={6} />
 
       {/* Contract Grid */}
       {displayed.length === 0 ? (
@@ -583,11 +530,10 @@ export default function ContractManagement() {
               <div key={c.contractId}
                 className="glass-card p-5 cursor-pointer hover:shadow-md transition-all"
                 onClick={() => setSelected(c)}>
-                {/* Card header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0 pr-2">
-                    <p className="text-xs font-mono text-blue-600 font-semibold mb-0.5">#{c.contractId}</p>
-                    <h3 className="text-sm font-semibold text-slate-800 truncate">
+                    <p className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold mb-0.5">#{c.contractId}</p>
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
                       {c.vendorName || `Vendor #${c.vendorId}`}
                     </h3>
                     <p className="text-xs text-slate-400 truncate">{c.projectName || `Project #${c.projectId}`}</p>
@@ -599,30 +545,27 @@ export default function ContractManagement() {
                   </span>
                 </div>
 
-                {/* Key info */}
                 <div className="space-y-1.5 mb-4">
                   {c.value && (
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-400">Contract Value</span>
-                      <span className="text-slate-700 font-semibold">${Number(c.value).toLocaleString()}</span>
+                      <span className="text-slate-700 dark:text-slate-200 font-semibold">${Number(c.value).toLocaleString()}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400">Duration</span>
-                    <span className="text-slate-500">{c.startDate || '—'} → {c.endDate || '—'}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{c.startDate || '—'} → {c.endDate || '—'}</span>
                   </div>
                 </div>
 
-                {/* Progress */}
                 <div className="mb-3">
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-slate-400">Progress</span>
-                    <span className="text-slate-600 font-semibold">{meta.progress}%</span>
+                    <span className="text-slate-600 dark:text-slate-300 font-semibold">{meta.progress}%</span>
                   </div>
                   <ProgressBar value={meta.progress} />
                 </div>
 
-                {/* Quick lifecycle state */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 text-[10px] text-slate-400">
                     <ClipboardList size={10} />
@@ -653,79 +596,73 @@ export default function ContractManagement() {
       {/* Create Contract Modal */}
       <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); setFormErrors({}); }} title="Create New Contract">
         <div className="space-y-4">
-          <div className="p-3 rounded-xl text-xs text-slate-500 flex items-center gap-2"
-            style={{ background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.12)' }}>
-            <AlertTriangle size={13} className="text-blue-400 shrink-0" />
-            New contracts are created in <strong className="text-blue-600">DRAFT</strong> status. Activate them from the detail view.
-          </div>
+          <InfoBox variant="info" icon={AlertTriangle}>
+            New contracts are created in <strong className="text-blue-600 dark:text-blue-400 mx-1">DRAFT</strong> status. Activate them from the detail view.
+          </InfoBox>
 
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Vendor * <span className="text-slate-400 font-normal">(must be ACTIVE)</span></label>
-            <select value={form.vendorId} onChange={e => { set('vendorId')(e); if (e.target.value) setFormErrors(p => ({ ...p, vendorId: '' })); }}
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.vendorId ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`}>
-              <option value="">Select vendor…</option>
-              {activeVendors.map(v => (
-                <option key={v.vendorId} value={v.vendorId}>{v.name} (#{v.vendorId})</option>
-              ))}
-            </select>
-            {formErrors.vendorId
-              ? <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.vendorId}</p>
-              : activeVendors.length === 0 && <p className="text-xs text-amber-500 mt-1">No active vendors. Approve a vendor first.</p>
-            }
-          </div>
+          <FormSelect
+            label="Vendor"
+            required
+            hint="(must be ACTIVE)"
+            value={form.vendorId}
+            onChange={e => { set('vendorId')(e); if (e.target.value) setFormErrors(p => ({ ...p, vendorId: '' })); }}
+            error={formErrors.vendorId || (activeVendors.length === 0 ? 'No active vendors. Approve a vendor first.' : '')}
+          >
+            <option value="">Select vendor…</option>
+            {activeVendors.map(v => (
+              <option key={v.vendorId} value={v.vendorId}>{v.name} (#{v.vendorId})</option>
+            ))}
+          </FormSelect>
 
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Project *</label>
-            <select value={form.projectId} onChange={e => { set('projectId')(e); if (e.target.value) setFormErrors(p => ({ ...p, projectId: '' })); }}
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.projectId ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`}>
-              <option value="">Select project…</option>
-              {projects.map(p => (
-                <option key={p.projectId} value={p.projectId}>{p.name || `Project #${p.projectId}`}</option>
-              ))}
-            </select>
-            {formErrors.projectId
-              ? <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.projectId}</p>
-              : projects.length === 0 && <p className="text-xs text-amber-500 mt-1">No projects found. Create a project first.</p>
-            }
-          </div>
+          <FormSelect
+            label="Project"
+            required
+            value={form.projectId}
+            onChange={e => { set('projectId')(e); if (e.target.value) setFormErrors(p => ({ ...p, projectId: '' })); }}
+            error={formErrors.projectId || (projects.length === 0 ? 'No projects found. Create a project first.' : '')}
+          >
+            <option value="">Select project…</option>
+            {projects.map(p => (
+              <option key={p.projectId} value={p.projectId}>{p.name || `Project #${p.projectId}`}</option>
+            ))}
+          </FormSelect>
 
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Contract Value ($) *</label>
-            <input type="number" min="0.01" step="0.01" value={form.value}
-              onChange={e => { set('value')(e); if (e.target.value) setFormErrors(p => ({ ...p, value: '' })); }}
-              placeholder="0.00"
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.value ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-            {formErrors.value && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.value}</p>}
-          </div>
+          <FormInput
+            label="Contract Value ($)"
+            required
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={form.value}
+            onChange={e => { set('value')(e); if (e.target.value) setFormErrors(p => ({ ...p, value: '' })); }}
+            placeholder="0.00"
+            error={formErrors.value}
+          />
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Start Date *</label>
-              <input type="date" value={form.startDate}
-                onChange={e => { set('startDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, startDate: '' })); }}
-                className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.startDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-              {formErrors.startDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.startDate}</p>}
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">End Date *</label>
-              <input type="date" value={form.endDate}
-                onChange={e => { set('endDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, endDate: '' })); }}
-                className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.endDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-              {formErrors.endDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.endDate}</p>}
-            </div>
+            <FormInput
+              label="Start Date"
+              required
+              type="date"
+              value={form.startDate}
+              onChange={e => { set('startDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, startDate: '' })); }}
+              error={formErrors.startDate}
+            />
+            <FormInput
+              label="End Date"
+              required
+              type="date"
+              value={form.endDate}
+              onChange={e => { set('endDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, endDate: '' })); }}
+              error={formErrors.endDate}
+            />
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Description</label>
-            <textarea value={form.description} onChange={set('description')} rows={3} placeholder="Optional description of this contract…"
-              className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all resize-none" />
-          </div>
+          <FormTextarea label="Description" value={form.description} onChange={set('description')} rows={3} placeholder="Optional description of this contract…" />
 
           <div className="flex gap-2 justify-end pt-1">
-            <button className="btn-secondary text-xs" onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); setFormErrors({}); }}>Cancel</button>
-            <button className="btn-primary text-xs" onClick={handleCreate} disabled={saving}>
-              {saving ? <><Loader2 size={12} className="animate-spin" /> Creating…</> : <><FileText size={12} /> Create Contract</>}
-            </button>
+            <Button variant="secondary" size="xs" onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); setFormErrors({}); }}>Cancel</Button>
+            <Button variant="primary" size="xs" icon={<FileText size={12} />} onClick={handleCreate} loading={saving}>Create Contract</Button>
           </div>
         </div>
       </Modal>

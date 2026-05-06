@@ -1,17 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, CheckCircle2, Circle, XCircle, Loader2, RefreshCw,
-  Briefcase, ChevronRight, AlertTriangle, Zap, Trash2, Edit3,
-  MapPin, DollarSign, Calendar, AlertCircle, Pause, User,
+  CheckCircle2, Circle, XCircle, Loader2,
+  Briefcase, ChevronRight, Zap, Trash2, Edit3,
+  MapPin, DollarSign, Calendar, Pause, User,
 } from 'lucide-react';
-import ProgressBar from '../../components/ui/ProgressBar';
-import Modal from '../../components/ui/Modal';
+import {
+  Button, EmptyState, FormInput, FormSelect, FormTextarea,
+  InfoBox, Modal, PageHeader, ProgressBar, StatusCards,
+} from '../../components/ui';
 import {
   getAllProjects, createProject, updateProject, deleteProject, updateProjectStatus,
 } from '../../api/projects';
 import { getUserByRole } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function statusMeta(status) {
   return {
@@ -22,6 +26,22 @@ function statusMeta(status) {
     CANCELLED: { label: 'Cancelled', color: '#EF4444', bg: 'rgba(239,68,68,0.12)',   progress: 100 },
   }[status] ?? { label: status, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', progress: 10 };
 }
+
+const STATUS_OPTIONS = [
+  { key: 'ALL',       label: 'All',       color: '#64748b' },
+  { key: 'PLANNING',  label: 'Planning',  color: '#F59E0B' },
+  { key: 'ACTIVE',    label: 'Active',    color: '#22C55E' },
+  { key: 'ON_HOLD',   label: 'On Hold',   color: '#F97316' },
+  { key: 'COMPLETED', label: 'Completed', color: '#2563EB' },
+  { key: 'CANCELLED', label: 'Cancelled', color: '#EF4444' },
+];
+
+const EMPTY_FORM = {
+  name: '', description: '', location: '', budget: '',
+  startDate: '', endDate: '', actualEndDate: '', managerUsername: '', managerId: '',
+};
+
+// ─── timeline ─────────────────────────────────────────────────────────────────
 
 const TIMELINE_STAGES = ['Planning', 'Active', 'Closed'];
 
@@ -44,7 +64,6 @@ function ProjectTimeline({ status }) {
         const label = i === 2 ? closeLabel : i === 1 && isOnHold ? 'On Hold' : s;
         const done  = i < activeIdx;
         const curr  = i === activeIdx;
-
         let dotColor = 'bg-slate-200 dark:bg-slate-700';
         if (done) dotColor = 'bg-blue-600';
         if (curr) {
@@ -52,7 +71,6 @@ function ProjectTimeline({ status }) {
           else if (isOnHold) dotColor = 'bg-orange-400';
           else dotColor = 'bg-blue-600';
         }
-
         let textColor = 'text-slate-400';
         if (curr) {
           if (isCancelled) textColor = 'text-red-500';
@@ -65,14 +83,10 @@ function ProjectTimeline({ status }) {
           <div key={s} className="flex items-center">
             <div className="flex flex-col items-center gap-1.5">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white transition-all ${dotColor} shadow-sm`}>
-                {done
-                  ? <CheckCircle2 size={13} />
-                  : curr && isCancelled
-                  ? <XCircle size={13} />
-                  : curr && isOnHold
-                  ? <Pause size={11} />
-                  : <Circle size={11} fill="white" />
-                }
+                {done ? <CheckCircle2 size={13} />
+                  : curr && isCancelled ? <XCircle size={13} />
+                  : curr && isOnHold    ? <Pause size={11} />
+                  : <Circle size={11} fill="white" />}
               </div>
               <span className={`text-[10px] font-semibold whitespace-nowrap ${textColor}`}>{label}</span>
             </div>
@@ -86,41 +100,37 @@ function ProjectTimeline({ status }) {
   );
 }
 
-function LifecycleActions({ project, onStatusChange, canManage, isAdmin }) {
-  const [loading, setLoading] = useState(null);
+// ─── lifecycle actions ────────────────────────────────────────────────────────
 
+function LifecycleActions({ project, onStatusChange, canManage, isAdmin }) {
+  const [loadingKey, setLoadingKey] = useState(null);
   if (!canManage) return null;
 
   const actions = [];
-  if (project.status === 'PLANNING') {
-    if (isAdmin) {
-      actions.push({ label: 'Activate Project', status: 'ACTIVE',    color: '#22C55E', icon: Zap     });
-      actions.push({ label: 'Cancel Project',   status: 'CANCELLED', color: '#EF4444', icon: XCircle });
-    }
+  if (project.status === 'PLANNING' && isAdmin) {
+    actions.push({ label: 'Activate Project', status: 'ACTIVE',    color: '#22C55E', icon: Zap      });
+    actions.push({ label: 'Cancel Project',   status: 'CANCELLED', color: '#EF4444', icon: XCircle  });
   } else if (project.status === 'ACTIVE') {
-    actions.push({ label: 'Put On Hold',     status: 'ON_HOLD',   color: '#F97316', icon: Pause       });
+    actions.push({ label: 'Put On Hold',      status: 'ON_HOLD',   color: '#F97316', icon: Pause    });
     if (isAdmin) {
       actions.push({ label: 'Mark Completed', status: 'COMPLETED', color: '#2563EB', icon: CheckCircle2 });
-      actions.push({ label: 'Cancel Project', status: 'CANCELLED', color: '#EF4444', icon: XCircle      });
+      actions.push({ label: 'Cancel Project', status: 'CANCELLED', color: '#EF4444', icon: XCircle  });
     }
   } else if (project.status === 'ON_HOLD') {
-    actions.push({ label: 'Resume Project', status: 'ACTIVE',    color: '#22C55E', icon: Zap     });
+    actions.push({ label: 'Resume Project',   status: 'ACTIVE',    color: '#22C55E', icon: Zap      });
     if (isAdmin) {
-      actions.push({ label: 'Cancel Project', status: 'CANCELLED', color: '#EF4444', icon: XCircle });
+      actions.push({ label: 'Cancel Project', status: 'CANCELLED', color: '#EF4444', icon: XCircle  });
     }
   }
 
-  if (actions.length === 0) return (
-    <p className="text-xs text-slate-400 italic">This project is in a terminal state — no further transitions available.</p>
-  );
+  if (actions.length === 0) {
+    return <p className="text-xs text-slate-400 italic">This project is in a terminal state — no further transitions available.</p>;
+  }
 
-  const handle = async (action) => {
-    setLoading(action.status);
-    try {
-      await onStatusChange(action.status);
-    } finally {
-      setLoading(null);
-    }
+  const handle = async (a) => {
+    setLoadingKey(a.status);
+    try { await onStatusChange(a.status); }
+    finally { setLoadingKey(null); }
   };
 
   return (
@@ -131,14 +141,11 @@ function LifecycleActions({ project, onStatusChange, canManage, isAdmin }) {
           <button
             key={a.status}
             onClick={() => handle(a)}
-            disabled={!!loading}
+            disabled={!!loadingKey}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white transition-all disabled:opacity-50"
             style={{ background: a.color, boxShadow: `0 2px 8px ${a.color}55` }}
           >
-            {loading === a.status
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Icon size={12} />
-            }
+            {loadingKey === a.status ? <Loader2 size={12} className="animate-spin" /> : <Icon size={12} />}
             {a.label}
           </button>
         );
@@ -146,6 +153,8 @@ function LifecycleActions({ project, onStatusChange, canManage, isAdmin }) {
     </div>
   );
 }
+
+// ─── detail modal ─────────────────────────────────────────────────────────────
 
 function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, isAdmin }) {
   const [tab, setTab]           = useState('details');
@@ -166,32 +175,27 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
   };
 
   if (!project) return null;
-
   const meta       = statusMeta(project.status);
   const isEditable = project.status === 'PLANNING' || project.status === 'ACTIVE';
 
   const openEdit = () => {
     setEditForm({
-      name:          project.name          || '',
-      description:   project.description   || '',
-      location:      project.location      || '',
-      budget:        project.budget        || '',
-      startDate:     project.startDate     || '',
-      endDate:       project.endDate       || '',
-      actualEndDate: project.actualEndDate || '',
-      managerUsername: project.managerName || '',
-      managerId:     project.managerId     || '',
+      name:            project.name          || '',
+      description:     project.description   || '',
+      location:        project.location      || '',
+      budget:          project.budget        || '',
+      startDate:       project.startDate     || '',
+      endDate:         project.endDate       || '',
+      actualEndDate:   project.actualEndDate || '',
+      managerUsername: project.managerName   || '',
+      managerId:       project.managerId     || '',
     });
     setEditing(true);
   };
 
   const handleManagerChange = (e) => {
-    const selected = managers.find(m => m.username === e.target.value);
-    setEditForm(p => ({
-      ...p,
-      managerUsername: selected?.username || '',
-      managerId:       selected?.userId   || '',
-    }));
+    const sel = managers.find(m => m.username === e.target.value);
+    setEditForm(p => ({ ...p, managerUsername: sel?.username || '', managerId: sel?.userId || '' }));
   };
 
   const handleSave = async () => {
@@ -200,13 +204,13 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
     try {
       await updateProject(project.projectId, {
         name:          editForm.name,
-        description:   editForm.description   || undefined,
+        description:   editForm.description    || undefined,
         location:      editForm.location,
         budget:        Number(editForm.budget),
         startDate:     editForm.startDate,
         endDate:       editForm.endDate,
-        actualEndDate: editForm.actualEndDate || undefined,
-        managerId:     editForm.managerId     || undefined,
+        actualEndDate: editForm.actualEndDate  || undefined,
+        managerId:     editForm.managerId      || undefined,
         managerName:   editForm.managerUsername || undefined,
       });
       toast.success('Project updated');
@@ -240,7 +244,7 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
     }
   };
 
-  const setF = (k) => (e) => setEditForm((p) => ({ ...p, [k]: e.target.value }));
+  const setF = (k) => (e) => setEditForm(p => ({ ...p, [k]: e.target.value }));
 
   return (
     <Modal open={!!project} onClose={onClose} title={`Project: ${project.name}`} wide>
@@ -271,9 +275,7 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
           {['details', 'actions'].map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 text-xs font-semibold capitalize transition-all rounded-t-lg ${
-                tab === t
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                tab === t ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}>
               {t === 'actions' ? 'Lifecycle Actions' : 'Details'}
             </button>
@@ -287,9 +289,9 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
               <>
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    ['Name',       project.name     || '—'],
-                    ['Location',   project.location || '—'],
-                    ['Budget',     project.budget   ? `$${Number(project.budget).toLocaleString()}` : '—'],
+                    ['Name',       project.name       || '—'],
+                    ['Location',   project.location   || '—'],
+                    ['Budget',     project.budget ? `$${Number(project.budget).toLocaleString()}` : '—'],
                     ['Start Date', project.startDate     || '—'],
                     ['End Date',   project.endDate       || '—'],
                     ['Actual End', project.actualEndDate || '—'],
@@ -311,82 +313,41 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
                 )}
                 <div className="flex gap-2 justify-end">
                   {isAdmin && isEditable && (
-                    <button className="btn-secondary text-xs" onClick={openEdit}>
-                      <Edit3 size={12} /> Edit
-                    </button>
+                    <Button variant="secondary" size="xs" icon={<Edit3 size={12} />} onClick={openEdit}>Edit</Button>
                   )}
                   {isAdmin && (
-                    <button
-                      onClick={handleDelete}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition-all">
-                      <Trash2 size={12} /> Delete
-                    </button>
+                    <Button variant="danger" size="xs" icon={<Trash2 size={12} />} onClick={handleDelete}>Delete</Button>
                   )}
-                  <button className="btn-secondary text-xs" onClick={onClose}>Close</button>
+                  <Button variant="secondary" size="xs" onClick={onClose}>Close</Button>
                 </div>
               </>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Project Name *</label>
-                    <input value={editForm.name} onChange={setF('name')} placeholder="Project name"
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.name ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.name && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.name}</p>}
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Location *</label>
-                    <input value={editForm.location} onChange={setF('location')} placeholder="Project location"
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.location ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.location && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.location}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Budget ($) *</label>
-                    <input type="number" value={editForm.budget} onChange={setF('budget')} placeholder="0.00"
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.budget ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.budget && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.budget}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Manager Username</label>
-                    <select value={editForm.managerUsername} onChange={handleManagerChange}
-                      className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all">
-                      <option value="">Select manager…</option>
-                      {managers.map(m => (
-                        <option key={m.userId} value={m.username}>{m.username}</option>
-                      ))}
-                    </select>
-                    {managers.length === 0 && (
-                      <p className="text-xs text-slate-400 mt-1">No project managers found.</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Start Date *</label>
-                    <input type="date" value={editForm.startDate} onChange={setF('startDate')}
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.startDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.startDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.startDate}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">End Date *</label>
-                    <input type="date" value={editForm.endDate} onChange={setF('endDate')}
-                      className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all ${editErrors.endDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                    {editErrors.endDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{editErrors.endDate}</p>}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Actual End Date</label>
-                    <input type="date" value={editForm.actualEndDate} onChange={setF('actualEndDate')}
-                      className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400 transition-all" />
-                  </div>
+                  <FormInput label="Project Name" required dense className="col-span-2"
+                    value={editForm.name} onChange={setF('name')} placeholder="Project name" error={editErrors.name} />
+                  <FormInput label="Location" required dense className="col-span-2"
+                    value={editForm.location} onChange={setF('location')} placeholder="Project location" error={editErrors.location} />
+                  <FormInput label="Budget ($)" required dense type="number"
+                    value={editForm.budget} onChange={setF('budget')} placeholder="0.00" error={editErrors.budget} />
+                  <FormSelect label="Manager Username" dense
+                    value={editForm.managerUsername} onChange={handleManagerChange}
+                    hint={managers.length === 0 ? 'No project managers found.' : undefined}>
+                    <option value="">Select manager…</option>
+                    {managers.map(m => <option key={m.userId} value={m.username}>{m.username}</option>)}
+                  </FormSelect>
+                  <FormInput label="Start Date" required dense type="date"
+                    value={editForm.startDate} onChange={setF('startDate')} error={editErrors.startDate} />
+                  <FormInput label="End Date" required dense type="date"
+                    value={editForm.endDate} onChange={setF('endDate')} error={editErrors.endDate} />
+                  <FormInput label="Actual End Date" dense type="date"
+                    value={editForm.actualEndDate} onChange={setF('actualEndDate')} />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Description</label>
-                  <textarea value={editForm.description} onChange={setF('description')} rows={3}
-                    className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-blue-400 resize-none" />
-                </div>
+                <FormTextarea label="Description"
+                  value={editForm.description} onChange={setF('description')} />
                 <div className="flex gap-2 justify-end">
-                  <button className="btn-secondary text-xs" onClick={() => { setEditing(false); setEditErrors({}); }}>Cancel</button>
-                  <button className="btn-primary text-xs" onClick={handleSave} disabled={saving}>
-                    {saving ? <><Loader2 size={11} className="animate-spin" /> Saving…</> : 'Save Changes'}
-                  </button>
+                  <Button variant="secondary" size="xs" onClick={() => { setEditing(false); setEditErrors({}); }}>Cancel</Button>
+                  <Button variant="primary" size="xs" loading={saving} onClick={handleSave}>Save Changes</Button>
                 </div>
               </div>
             )}
@@ -396,16 +357,12 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
         {/* Lifecycle Actions tab */}
         {tab === 'actions' && (
           <div className="space-y-4">
-            <div className="p-3 rounded-xl text-sm"
-              style={{ background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.1)' }}>
-              <p className="text-xs text-slate-500 font-semibold mb-1 uppercase tracking-wide">Allowed Transitions</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                {project.status === 'PLANNING'  && 'PLANNING → ACTIVE (activate) or CANCELLED.'}
-                {project.status === 'ACTIVE'    && 'ACTIVE → ON_HOLD, COMPLETED, or CANCELLED.'}
-                {project.status === 'ON_HOLD'   && 'ON_HOLD → ACTIVE (resume) or CANCELLED.'}
-                {['COMPLETED', 'CANCELLED'].includes(project.status) && 'This project is in a terminal state — no further transitions available.'}
-              </p>
-            </div>
+            <InfoBox variant="info">
+              {project.status === 'PLANNING'  && 'PLANNING → ACTIVE (activate) or CANCELLED.'}
+              {project.status === 'ACTIVE'    && 'ACTIVE → ON_HOLD, COMPLETED, or CANCELLED.'}
+              {project.status === 'ON_HOLD'   && 'ON_HOLD → ACTIVE (resume) or CANCELLED.'}
+              {['COMPLETED', 'CANCELLED'].includes(project.status) && 'This project is in a terminal state — no further transitions available.'}
+            </InfoBox>
             <LifecycleActions
               project={project}
               onStatusChange={handleStatusChange}
@@ -419,10 +376,7 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
   );
 }
 
-const EMPTY_FORM = {
-  name: '', description: '', location: '', budget: '',
-  startDate: '', endDate: '', actualEndDate: '', managerUsername: '', managerId: '',
-};
+// ─── main page ────────────────────────────────────────────────────────────────
 
 export default function ProjectManagement() {
   const { user }                    = useAuth();
@@ -453,12 +407,9 @@ export default function ProjectManagement() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [projectsRes, managersRes] = await Promise.allSettled([
-        getAllProjects(),
-        getUserByRole('PROJECT_MANAGER'),
-      ]);
-      setProjects(projectsRes.status === 'fulfilled' ? (projectsRes.value.data?.data ?? []) : []);
-      setManagers(managersRes.status === 'fulfilled' ? (managersRes.value.data?.data ?? managersRes.value.data ?? []) : []);
+      const [pr, mr] = await Promise.allSettled([getAllProjects(), getUserByRole('PROJECT_MANAGER')]);
+      setProjects(pr.status === 'fulfilled' ? (pr.value.data?.data ?? []) : []);
+      setManagers(mr.status === 'fulfilled' ? (mr.value.data?.data ?? mr.value.data ?? []) : []);
     } catch {
       toast.error('Failed to load data');
     } finally { setLoading(false); }
@@ -467,13 +418,13 @@ export default function ProjectManagement() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleManagerSelect = (e) => {
-    const selected = managers.find(m => m.username === e.target.value);
-    setForm(p => ({
-      ...p,
-      managerUsername: selected?.username || '',
-      managerId:       selected?.userId   || '',
-    }));
+    const sel = managers.find(m => m.username === e.target.value);
+    setForm(p => ({ ...p, managerUsername: sel?.username || '', managerId: sel?.userId || '' }));
   };
+
+  const set = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const clearError = (k) => setFormErrors(p => ({ ...p, [k]: '' }));
 
   const handleCreate = async () => {
     if (!validateCreate()) return;
@@ -499,7 +450,7 @@ export default function ProjectManagement() {
     } finally { setSaving(false); }
   };
 
-  const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const closeCreate = () => { setShowCreate(false); setForm(EMPTY_FORM); setFormErrors({}); };
 
   const counts = { ALL: projects.length, PLANNING: 0, ACTIVE: 0, ON_HOLD: 0, COMPLETED: 0, CANCELLED: 0 };
   projects.forEach(p => { if (counts[p.status] !== undefined) counts[p.status]++; });
@@ -515,48 +466,26 @@ export default function ProjectManagement() {
 
   return (
     <div className="animate-fadeIn space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Project Management</h2>
-          <p className="text-sm text-slate-400">{projects.length} projects · Lifecycle: PLANNING → ACTIVE → CLOSED</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchData} className="btn-secondary text-xs"><RefreshCw size={13} /> Refresh</button>
-          {isAdmin && (
-            <button className="btn-primary text-xs" onClick={() => setShowCreate(true)}>
-              <Plus size={14} /> New Project
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Project Management"
+        subtitle={`${projects.length} projects · Lifecycle: PLANNING → ACTIVE → CLOSED`}
+        actions={
+          <>
+            <Button variant="secondary" size="xs" onClick={fetchData}>Refresh</Button>
+            {isAdmin && (
+              <Button variant="primary" size="xs" onClick={() => setShowCreate(true)}>+ New Project</Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Status filter cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        {[
-          { key: 'ALL',       label: 'All',       color: '#64748b' },
-          { key: 'PLANNING',  label: 'Planning',  color: '#F59E0B' },
-          { key: 'ACTIVE',    label: 'Active',    color: '#22C55E' },
-          { key: 'ON_HOLD',   label: 'On Hold',   color: '#F97316' },
-          { key: 'COMPLETED', label: 'Completed', color: '#2563EB' },
-          { key: 'CANCELLED', label: 'Cancelled', color: '#EF4444' },
-        ].map(s => (
-          <button key={s.key} onClick={() => setFilterStatus(s.key)}
-            className="glass-card p-3 text-center transition-all"
-            style={filterStatus === s.key ? { borderColor: s.color, borderWidth: 2, transform: 'translateY(-2px)' } : {}}>
-            <p className="text-xl font-bold" style={{ color: s.color }}>{counts[s.key] ?? 0}</p>
-            <p className="text-[10px] text-slate-400 font-medium">{s.label}</p>
-          </button>
-        ))}
-      </div>
+      <StatusCards options={STATUS_OPTIONS} counts={counts} value={filterStatus} onChange={setFilterStatus} />
 
-      {/* Project Grid */}
       {displayed.length === 0 ? (
-        <div className="glass-card p-10 text-center text-slate-400 text-sm">
-          {filterStatus === 'ALL'
-            ? 'No projects found.'
-            : `No ${filterStatus.toLowerCase().replace('_', ' ')} projects.`}
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          message={filterStatus === 'ALL' ? 'No projects found.' : `No ${filterStatus.toLowerCase().replace('_', ' ')} projects.`}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {displayed.map(p => {
@@ -624,7 +553,6 @@ export default function ProjectManagement() {
         </div>
       )}
 
-      {/* Project Detail Modal */}
       <ProjectDetailModal
         project={selected}
         managers={managers}
@@ -634,92 +562,49 @@ export default function ProjectManagement() {
         isAdmin={isAdmin}
       />
 
-      {/* Create Project Modal */}
       {isAdmin && (
-        <Modal
-          open={showCreate}
-          onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); setFormErrors({}); }}
-          title="Create New Project"
-        >
+        <Modal open={showCreate} onClose={closeCreate} title="Create New Project">
           <div className="space-y-4">
-            <div className="p-3 rounded-xl text-xs text-slate-500 flex items-center gap-2"
-              style={{ background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.12)' }}>
-              <AlertTriangle size={13} className="text-blue-400 shrink-0" />
+            <InfoBox variant="info">
               New projects start in <strong className="text-amber-600">PLANNING</strong> status. Activate them from the detail view.
-            </div>
+            </InfoBox>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Project Name *</label>
-                <input value={form.name}
-                  onChange={e => { set('name')(e); if (e.target.value) setFormErrors(p => ({ ...p, name: '' })); }}
-                  placeholder="e.g. City Bridge Renovation"
-                  className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.name ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                {formErrors.name && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.name}</p>}
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Location *</label>
-                <input value={form.location}
-                  onChange={e => { set('location')(e); if (e.target.value) setFormErrors(p => ({ ...p, location: '' })); }}
-                  placeholder="e.g. 123 Main St, New York, NY"
-                  className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.location ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                {formErrors.location && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.location}</p>}
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Budget ($) *</label>
-                <input type="number" min="0.01" step="0.01" value={form.budget}
-                  onChange={e => { set('budget')(e); if (e.target.value) setFormErrors(p => ({ ...p, budget: '' })); }}
-                  placeholder="0.00"
-                  className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.budget ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                {formErrors.budget && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.budget}</p>}
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Manager Username</label>
-                <select value={form.managerUsername} onChange={handleManagerSelect}
-                  className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all">
-                  <option value="">Select manager…</option>
-                  {managers.map(m => (
-                    <option key={m.userId} value={m.username}>{m.username}</option>
-                  ))}
-                </select>
-                {managers.length === 0 && (
-                  <p className="text-xs text-slate-400 mt-1">No project managers found.</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">Start Date *</label>
-                <input type="date" value={form.startDate}
-                  onChange={e => { set('startDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, startDate: '' })); }}
-                  className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.startDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                {formErrors.startDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.startDate}</p>}
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1">End Date *</label>
-                <input type="date" value={form.endDate}
-                  onChange={e => { set('endDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, endDate: '' })); }}
-                  className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${formErrors.endDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-                {formErrors.endDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{formErrors.endDate}</p>}
-              </div>
+              <FormInput label="Project Name" required className="col-span-2"
+                value={form.name} placeholder="e.g. City Bridge Renovation"
+                onChange={e => { set('name')(e); clearError('name'); }}
+                error={formErrors.name} />
+              <FormInput label="Location" required className="col-span-2"
+                value={form.location} placeholder="e.g. 123 Main St, New York, NY"
+                onChange={e => { set('location')(e); clearError('location'); }}
+                error={formErrors.location} />
+              <FormInput label="Budget ($)" required type="number" min="0.01" step="0.01"
+                value={form.budget} placeholder="0.00"
+                onChange={e => { set('budget')(e); clearError('budget'); }}
+                error={formErrors.budget} />
+              <FormSelect label="Manager Username"
+                value={form.managerUsername} onChange={handleManagerSelect}
+                hint={managers.length === 0 ? 'No project managers found.' : undefined}>
+                <option value="">Select manager…</option>
+                {managers.map(m => <option key={m.userId} value={m.username}>{m.username}</option>)}
+              </FormSelect>
+              <FormInput label="Start Date" required type="date"
+                value={form.startDate}
+                onChange={e => { set('startDate')(e); clearError('startDate'); }}
+                error={formErrors.startDate} />
+              <FormInput label="End Date" required type="date"
+                value={form.endDate}
+                onChange={e => { set('endDate')(e); clearError('endDate'); }}
+                error={formErrors.endDate} />
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Description</label>
-              <textarea value={form.description} onChange={set('description')} rows={3}
-                placeholder="Optional project description…"
-                className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all resize-none" />
-            </div>
+            <FormTextarea label="Description"
+              value={form.description} onChange={set('description')}
+              placeholder="Optional project description…" />
 
             <div className="flex gap-2 justify-end pt-1">
-              <button className="btn-secondary text-xs"
-                onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); setFormErrors({}); }}>
-                Cancel
-              </button>
-              <button className="btn-primary text-xs" onClick={handleCreate} disabled={saving}>
-                {saving
-                  ? <><Loader2 size={12} className="animate-spin" /> Creating…</>
-                  : <><Briefcase size={12} /> Create Project</>
-                }
-              </button>
+              <Button variant="secondary" size="xs" onClick={closeCreate}>Cancel</Button>
+              <Button variant="primary" size="xs" loading={saving} onClick={handleCreate}>Create Project</Button>
             </div>
           </div>
         </Modal>

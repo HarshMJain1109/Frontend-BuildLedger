@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Search, Filter, Star, MapPin, Mail, Upload, X, Plus, AlertTriangle,
+  Filter, Star, MapPin, Mail, Upload, X, Plus, AlertTriangle,
   Loader2, RefreshCw, FileText, Eye, ThumbsUp, ThumbsDown, Download, UploadCloud,
 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import {
+  Button, SearchBar, FilterPills,
+  Table, TableHead, TableHeader, TableBody, TableRow, TableCell,
+  PageHeader,
+} from '../../components/ui';
 import {
   getAllVendors, deleteVendor, getVendorDocuments,
   uploadVendorDocument, verifyDocument, getPendingDocuments, downloadVendorDocument, updateVendor,
@@ -15,6 +20,7 @@ import toast from 'react-hot-toast';
 
 const DOC_TYPES = ['PAN_CARD', 'GST_CERTIFICATE', 'TRADE_LICENSE', 'MSME_CERTIFICATE', 'BANK_STATEMENT', 'INCORPORATION_CERTIFICATE', 'OTHER'];
 const statusFilters = ['All', 'ACTIVE', 'PENDING', 'REJECTED'];
+const STATUS_FILTER_OPTIONS = statusFilters.map(s => ({ key: s, label: s }));
 
 const toArray = (value) => {
   if (Array.isArray(value)) return value;
@@ -196,7 +202,6 @@ function VendorProfilePanel({ vendor, onClose, refreshVendors, refreshPending, o
 
   return (
     <div className="glass-card p-6 animate-slideInRight space-y-5 overflow-y-auto max-h-[calc(100vh-200px)]">
-      {/* Vendor header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center text-white font-bold text-lg shrink-0">
@@ -212,7 +217,6 @@ function VendorProfilePanel({ vendor, onClose, refreshVendors, refreshPending, o
         </button>
       </div>
 
-      {/* Info grid */}
       <div className="space-y-2">
         {[['Email', vendor.email], ['Phone', vendor.phone], ['Address', vendor.address], ['Contact', vendor.contactInfo]].map(
           ([k, v]) => v && (
@@ -224,7 +228,6 @@ function VendorProfilePanel({ vendor, onClose, refreshVendors, refreshPending, o
         )}
       </div>
 
-      {/* Stats bar */}
       <div className="flex items-center justify-around py-3 border-y border-slate-100 dark:border-slate-700/40">
         {[['Vendor ID', vendor.vendorId], ['Status', vendor.status], ['Joined', vendor.createdAt?.slice(0, 10)]].map(([label, val]) => (
           <div key={label} className="text-center">
@@ -234,7 +237,6 @@ function VendorProfilePanel({ vendor, onClose, refreshVendors, refreshPending, o
         ))}
       </div>
 
-      {/* Upload section */}
       {canUpload && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
@@ -273,7 +275,6 @@ function VendorProfilePanel({ vendor, onClose, refreshVendors, refreshPending, o
         </div>
       )}
 
-      {/* Documents list */}
       <div>
         <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
           <FileText size={13} className="text-blue-400" />
@@ -399,16 +400,13 @@ export default function VendorManagement() {
 
   return (
     <div className="animate-fadeIn space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Vendor Management</h2>
-          <p className="text-sm text-slate-400">{vendors.length} vendors registered</p>
-        </div>
-        <button onClick={fetchVendors} className="btn-secondary text-xs flex items-center gap-1.5 self-start">
-          <RefreshCw size={13} /> Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Vendor Management"
+        subtitle={`${vendors.length} vendors registered`}
+        actions={
+          <Button variant="secondary" size="xs" icon={<RefreshCw size={13} />} onClick={fetchVendors}>Refresh</Button>
+        }
+      />
 
       {/* Pending docs alert */}
       {pendingDocs.length > 0 && (
@@ -444,30 +442,22 @@ export default function VendorManagement() {
 
       {/* Search + Filters */}
       <div className="glass-card p-4 flex flex-col sm:flex-row gap-3">
-        <div className="flex items-center gap-2 bg-white/60 dark:bg-slate-800/50 border border-white/80 dark:border-slate-700/40 rounded-xl px-3 py-2 flex-1">
-          <Search size={14} className="text-slate-400 shrink-0" />
-          <input
-            className="bg-transparent text-sm text-slate-600 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 outline-none w-full"
+        <div className="flex items-center gap-2 flex-1">
+          <SearchBar
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or email…"
-            value={search} onChange={e => setSearch(e.target.value)}
+            className="flex-1"
           />
           {search && (
-            <button onClick={() => setSearch('')}>
-              <X size={13} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+            <button onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 shrink-0">
+              <X size={13} />
             </button>
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter size={14} className="text-slate-400" />
-          {statusFilters.map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all
-                ${statusFilter === s
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                  : 'bg-white/60 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-white/80 dark:border-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60'}`}>
-              {s}
-            </button>
-          ))}
+          <Filter size={14} className="text-slate-400 shrink-0" />
+          <FilterPills options={STATUS_FILTER_OPTIONS} value={statusFilter} onChange={setStatusFilter} />
         </div>
       </div>
 
@@ -481,23 +471,20 @@ export default function VendorManagement() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/60 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700/40">
-                  <tr>
-                    {['Vendor', 'Category', 'Status', 'Email', 'Phone', 'Since', ''].map(h => (
-                      <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+              <Table elevated={false}>
+                <TableHead>
+                  {['Vendor', 'Category', 'Status', 'Email', 'Phone', 'Since', ''].map(h => (
+                    <TableHeader key={h}>{h}</TableHeader>
+                  ))}
+                </TableHead>
+                <TableBody>
                   {filtered.map(v => (
-                    <tr key={v.vendorId}
+                    <TableRow
+                      key={v.vendorId}
                       onClick={() => setSelected(selected?.vendorId === v.vendorId ? null : v)}
-                      className={`border-b border-slate-50 dark:border-slate-700/20 cursor-pointer transition-all
-                        ${selected?.vendorId === v.vendorId
-                          ? 'bg-blue-50/40 dark:bg-blue-500/10'
-                          : 'hover:bg-white/50 dark:hover:bg-slate-700/20'}`}>
-                      <td className="px-5 py-3">
+                      selected={selected?.vendorId === v.vendorId}
+                    >
+                      <TableCell>
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-400 to-teal-400 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                             {(v.name || 'V').slice(0, 2).toUpperCase()}
@@ -507,18 +494,18 @@ export default function VendorManagement() {
                             {v.username && <p className="text-[10px] text-slate-400">@{v.username}</p>}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-5 py-3 text-xs text-slate-500 dark:text-slate-400">{v.category || '—'}</td>
-                      <td className="px-5 py-3">
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 dark:text-slate-400">{v.category || '—'}</TableCell>
+                      <TableCell>
                         <span className={`flex items-center gap-1.5 text-[10px] font-semibold w-fit
                           ${v.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400' : v.status === 'PENDING' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                           <StatusDot status={v.status} /> {v.status}
                         </span>
-                      </td>
-                      <td className="px-5 py-3 text-xs text-slate-400">{v.email}</td>
-                      <td className="px-5 py-3 text-xs text-slate-400">{v.phone || '—'}</td>
-                      <td className="px-5 py-3 text-xs text-slate-400">{v.createdAt?.slice(0, 10) || '—'}</td>
-                      <td className="px-5 py-3">
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-400">{v.email}</TableCell>
+                      <TableCell className="text-xs text-slate-400">{v.phone || '—'}</TableCell>
+                      <TableCell className="text-xs text-slate-400">{v.createdAt?.slice(0, 10) || '—'}</TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2">
                           <button onClick={e => { e.stopPropagation(); setSelected(v); }}
                             className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1">
@@ -531,18 +518,16 @@ export default function VendorManagement() {
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
                   {filtered.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-400">
-                        No vendors found
-                      </td>
-                    </tr>
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-400">No vendors found</TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </div>

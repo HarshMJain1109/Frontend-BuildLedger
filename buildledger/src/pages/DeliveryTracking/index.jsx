@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, Truck, Package, RotateCcw, Calendar, Loader2, Plus, Wrench, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Truck, Package, RotateCcw, Calendar, Loader2, Plus, Wrench } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import ProgressBar from '../../components/ui/ProgressBar';
 import Modal from '../../components/ui/Modal';
+import {
+  Button, FormInput, FormSelect, FormTextarea, FilterPills, PageHeader,
+  Table, TableHead, TableHeader, TableBody, TableRow, TableCell,
+} from '../../components/ui';
 import { getAllDeliveries, createDelivery, updateDeliveryStatus } from '../../api/deliveries';
 import { getAllServices, createService, updateServiceStatus } from '../../api/services';
 import { getAllContracts } from '../../api/contracts';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-
-// ── Delivery config ────────────────────────────────────────────────────────────
 
 const DELIVERY_STATUS_MAP = {
   PENDING:          { icon: Clock,        color: '#F59E0B', label: 'Pending' },
@@ -40,8 +42,6 @@ function deliveryProgress(status) {
 
 const DELIVERY_STEPS = ['PENDING', 'MARKED_DELIVERED', 'ACCEPTED'];
 
-// ── Service config ─────────────────────────────────────────────────────────────
-
 const SERVICE_STATUS_MAP = {
   PENDING:     { color: '#F59E0B', label: 'Pending' },
   IN_PROGRESS: { color: '#2563EB', label: 'In Progress' },
@@ -65,8 +65,6 @@ const SERVICE_ROLE_RULES = {
 function serviceProgress(status) {
   return { PENDING: 10, IN_PROGRESS: 40, COMPLETED: 75, VERIFIED: 100 }[status] ?? 10;
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function contractLabel(contracts, contractId) {
   const c = contracts.find(x => x.contractId === contractId);
@@ -127,12 +125,18 @@ function ActionButtons({ transitions, roleRules, currentStatus, role, onTransiti
   );
 }
 
-// ── Empty forms ────────────────────────────────────────────────────────────────
-
 const EMPTY_DELIVERY = { contractId: '', item: '', quantity: '', unit: '', date: '', remarks: '' };
 const EMPTY_SERVICE  = { contractId: '', description: '', completionDate: '', remarks: '' };
 
-// ── Main component ─────────────────────────────────────────────────────────────
+const DELIVERY_FILTER_OPTIONS = ['All', ...Object.keys(DELIVERY_STATUS_MAP)].map(s => ({
+  key: s,
+  label: DELIVERY_STATUS_MAP[s]?.label || s,
+}));
+
+const SERVICE_FILTER_OPTIONS = ['All', ...Object.keys(SERVICE_STATUS_MAP)].map(s => ({
+  key: s,
+  label: SERVICE_STATUS_MAP[s]?.label || s,
+}));
 
 export default function DeliveryTracking() {
   const { user } = useAuth();
@@ -167,8 +171,6 @@ export default function DeliveryTracking() {
   };
 
   useEffect(() => { fetchData(); }, []);
-
-  // ── Delivery handlers ──────────────────────────────────────────────────────
 
   const handleCreateDelivery = async () => {
     const e = {};
@@ -207,13 +209,11 @@ export default function DeliveryTracking() {
     finally { setUpdating(p => ({ ...p, [`d-${deliveryId}`]: false })); }
   };
 
-  // ── Service handlers ───────────────────────────────────────────────────────
-
   const handleCreateService = async () => {
     const e = {};
-    if (!formS.contractId)                         e.contractId    = 'Please select a contract';
+    if (!formS.contractId)                          e.contractId    = 'Please select a contract';
     if (!formS.description || formS.description.trim().length < 10) e.description = 'Description must be at least 10 characters';
-    if (!formS.completionDate)                     e.completionDate = 'Completion date is required';
+    if (!formS.completionDate)                      e.completionDate = 'Completion date is required';
     setSErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
@@ -257,22 +257,21 @@ export default function DeliveryTracking() {
 
   return (
     <div className="animate-fadeIn space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Delivery & Service Tracking</h2>
-          <p className="text-sm text-slate-400">{deliveries.length} deliveries · {services.length} services</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchData} className="btn-secondary text-xs"><RotateCcw size={13} /> Refresh</button>
-          {canCreate && tab === 'deliveries' && (
-            <button onClick={() => setShowCreateD(true)} className="btn-primary text-xs"><Plus size={13} /> New Delivery</button>
-          )}
-          {canCreate && tab === 'services' && (
-            <button onClick={() => setShowCreateS(true)} className="btn-primary text-xs"><Plus size={13} /> New Service</button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Delivery & Service Tracking"
+        subtitle={`${deliveries.length} deliveries · ${services.length} services`}
+        actions={
+          <>
+            <Button variant="secondary" size="xs" icon={<RotateCcw size={13} />} onClick={fetchData}>Refresh</Button>
+            {canCreate && tab === 'deliveries' && (
+              <Button variant="primary" size="xs" icon={<Plus size={13} />} onClick={() => setShowCreateD(true)}>New Delivery</Button>
+            )}
+            {canCreate && tab === 'services' && (
+              <Button variant="primary" size="xs" icon={<Plus size={13} />} onClick={() => setShowCreateS(true)}>New Service</Button>
+            )}
+          </>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700/50">
@@ -291,10 +290,9 @@ export default function DeliveryTracking() {
         })}
       </div>
 
-      {/* ── DELIVERIES TAB ── */}
+      {/* DELIVERIES TAB */}
       {tab === 'deliveries' && (
         <>
-          {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {Object.entries(DELIVERY_STATUS_MAP).map(([s, cfg]) => {
               const Icon = cfg.icon;
@@ -305,7 +303,7 @@ export default function DeliveryTracking() {
                     <Icon size={16} style={{ color: cfg.color }} />
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-slate-800">{count}</p>
+                    <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{count}</p>
                     <p className="text-[10px] text-slate-400">{cfg.label}</p>
                   </div>
                 </div>
@@ -313,56 +311,46 @@ export default function DeliveryTracking() {
             })}
           </div>
 
-          {/* Filter */}
-          <div className="flex gap-2 flex-wrap">
-            {['All', ...Object.keys(DELIVERY_STATUS_MAP)].map(s => (
-              <button key={s} onClick={() => setFilter(s)}
-                className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all
-                  ${filter === s ? 'bg-blue-600 text-white shadow-sm' : 'glass text-slate-500 hover:bg-white dark:text-slate-400 dark:hover:bg-slate-700/60'}`}>
-                {DELIVERY_STATUS_MAP[s]?.label || s}
-              </button>
-            ))}
-          </div>
+          <FilterPills options={DELIVERY_FILTER_OPTIONS} value={filter} onChange={setFilter} />
 
-          {/* Table */}
           <div className="glass-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/60 border-b border-slate-100 dark:border-slate-700/40">
-                  <tr>
-                    {['ID', 'Item', 'Contract', 'Qty / Unit', 'Delivery Date', 'Status', 'Progress', 'Steps', 'Actions'].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+              <Table elevated={false}>
+                <TableHead>
+                  {['ID', 'Item', 'Contract', 'Qty / Unit', 'Delivery Date', 'Status', 'Progress', 'Steps', 'Actions'].map(h => (
+                    <TableHeader key={h}>{h}</TableHeader>
+                  ))}
+                </TableHead>
+                <TableBody>
                   {filteredDeliveries.length === 0 ? (
-                    <tr><td colSpan={9} className="px-5 py-10 text-center text-sm text-slate-400">No deliveries found</td></tr>
+                    <TableRow>
+                      <TableCell colSpan={9} className="py-10 text-center text-sm text-slate-400">No deliveries found</TableCell>
+                    </TableRow>
                   ) : filteredDeliveries.map(d => {
                     const cfg      = DELIVERY_STATUS_MAP[d.status] || DELIVERY_STATUS_MAP.PENDING;
                     const progress = deliveryProgress(d.status);
                     return (
-                      <tr key={d.deliveryId} className="border-b border-slate-50 dark:border-slate-700/20 hover:bg-white/50 transition-colors">
-                        <td className="px-4 py-3 text-xs font-mono text-blue-600 font-semibold">#{d.deliveryId}</td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs font-semibold text-slate-800">{d.item || '—'}</p>
+                      <TableRow key={d.deliveryId}>
+                        <TableCell className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold">#{d.deliveryId}</TableCell>
+                        <TableCell>
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{d.item || '—'}</p>
                           {d.remarks && <p className="text-[10px] text-slate-400 truncate max-w-[120px]">{d.remarks}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px]">
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-[140px]">
                           <span className="truncate block">{contractLabel(contracts, d.contractId)}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600 font-medium whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">
                           {d.quantity ? `${d.quantity}${d.unit ? ` ${d.unit}` : ''}` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{d.date || '—'}</td>
-                        <td className="px-4 py-3"><Badge status={d.status} /></td>
-                        <td className="px-4 py-3 w-28">
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{d.date || '—'}</TableCell>
+                        <TableCell><Badge status={d.status} /></TableCell>
+                        <TableCell className="w-28">
                           <ProgressBar value={progress} color={cfg.color} showLabel />
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           <Stepper status={d.status} steps={DELIVERY_STEPS} />
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           <ActionButtons
                             transitions={DELIVERY_TRANSITIONS}
                             roleRules={DELIVERY_ROLE_RULES}
@@ -372,21 +360,20 @@ export default function DeliveryTracking() {
                             loadingKey={updating[`d-${d.deliveryId}`]}
                             itemKey={d.deliveryId}
                           />
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         </>
       )}
 
-      {/* ── SERVICES TAB ── */}
+      {/* SERVICES TAB */}
       {tab === 'services' && (
         <>
-          {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Object.entries(SERVICE_STATUS_MAP).map(([s, cfg]) => {
               const count = services.filter(x => x.status === s).length;
@@ -396,7 +383,7 @@ export default function DeliveryTracking() {
                     <Wrench size={16} style={{ color: cfg.color }} />
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-slate-800">{count}</p>
+                    <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{count}</p>
                     <p className="text-[10px] text-slate-400">{cfg.label}</p>
                   </div>
                 </div>
@@ -404,50 +391,40 @@ export default function DeliveryTracking() {
             })}
           </div>
 
-          {/* Filter */}
-          <div className="flex gap-2 flex-wrap">
-            {['All', ...Object.keys(SERVICE_STATUS_MAP)].map(s => (
-              <button key={s} onClick={() => setSvcFilter(s)}
-                className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all
-                  ${svcFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'glass text-slate-500 hover:bg-white dark:text-slate-400 dark:hover:bg-slate-700/60'}`}>
-                {SERVICE_STATUS_MAP[s]?.label || s}
-              </button>
-            ))}
-          </div>
+          <FilterPills options={SERVICE_FILTER_OPTIONS} value={svcFilter} onChange={setSvcFilter} />
 
-          {/* Table */}
           <div className="glass-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/60 border-b border-slate-100 dark:border-slate-700/40">
-                  <tr>
-                    {['ID', 'Description', 'Contract', 'Completion Date', 'Status', 'Progress', 'Actions'].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+              <Table elevated={false}>
+                <TableHead>
+                  {['ID', 'Description', 'Contract', 'Completion Date', 'Status', 'Progress', 'Actions'].map(h => (
+                    <TableHeader key={h}>{h}</TableHeader>
+                  ))}
+                </TableHead>
+                <TableBody>
                   {filteredServices.length === 0 ? (
-                    <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-400">No services found</td></tr>
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-400">No services found</TableCell>
+                    </TableRow>
                   ) : filteredServices.map(s => {
                     const progress = serviceProgress(s.status);
                     const cfg      = SERVICE_STATUS_MAP[s.status] || SERVICE_STATUS_MAP.PENDING;
                     return (
-                      <tr key={s.serviceId} className="border-b border-slate-50 dark:border-slate-700/20 hover:bg-white/50 transition-colors">
-                        <td className="px-4 py-3 text-xs font-mono text-blue-600 font-semibold">#{s.serviceId}</td>
-                        <td className="px-4 py-3">
-                          <p className="text-xs text-slate-700 max-w-[200px] truncate">{s.description || '—'}</p>
+                      <TableRow key={s.serviceId}>
+                        <TableCell className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold">#{s.serviceId}</TableCell>
+                        <TableCell>
+                          <p className="text-xs text-slate-700 dark:text-slate-200 max-w-[200px] truncate">{s.description || '—'}</p>
                           {s.remarks && <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{s.remarks}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px]">
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 max-w-[140px]">
                           <span className="truncate block">{contractLabel(contracts, s.contractId)}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{s.completionDate || '—'}</td>
-                        <td className="px-4 py-3"><Badge status={s.status} /></td>
-                        <td className="px-4 py-3 w-28">
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{s.completionDate || '—'}</TableCell>
+                        <TableCell><Badge status={s.status} /></TableCell>
+                        <TableCell className="w-28">
                           <ProgressBar value={progress} color={cfg.color} showLabel />
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           <ActionButtons
                             transitions={SERVICE_TRANSITIONS}
                             roleRules={SERVICE_ROLE_RULES}
@@ -457,117 +434,116 @@ export default function DeliveryTracking() {
                             loadingKey={updating[`s-${s.serviceId}`]}
                             itemKey={s.serviceId}
                           />
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         </>
       )}
 
-      {/* ── Create Delivery Modal ── */}
+      {/* Create Delivery Modal */}
       <Modal open={showCreateD} onClose={() => { setShowCreateD(false); setFormD(EMPTY_DELIVERY); setDErrors({}); }} title="Create Delivery">
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Contract *</label>
-            <select value={formD.contractId} onChange={e => { setD('contractId')(e); if (e.target.value) setDErrors(p => ({ ...p, contractId: '' })); }}
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${dErrors.contractId ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`}>
-              <option value="">Select contract…</option>
-              {contracts.filter(c => c.status === 'ACTIVE').map(c => (
-                <option key={c.contractId} value={c.contractId}>
-                  {c.vendorName || 'Unknown'} — {c.projectName || 'Unknown'} (#{c.contractId})
-                </option>
-              ))}
-            </select>
-            {dErrors.contractId
-              ? <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{dErrors.contractId}</p>
-              : contracts.filter(c => c.status === 'ACTIVE').length === 0 && <p className="text-xs text-amber-500 mt-1">No active contracts. Activate a contract first.</p>
-            }
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Item *</label>
-            <input value={formD.item} onChange={e => { setD('item')(e); if (e.target.value.trim()) setDErrors(p => ({ ...p, item: '' })); }} placeholder="Item description (min 2 chars)"
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${dErrors.item ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-            {dErrors.item && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{dErrors.item}</p>}
-          </div>
+          <FormSelect
+            label="Contract"
+            required
+            value={formD.contractId}
+            onChange={e => { setD('contractId')(e); if (e.target.value) setDErrors(p => ({ ...p, contractId: '' })); }}
+            error={dErrors.contractId}
+            hint={contracts.filter(c => c.status === 'ACTIVE').length === 0 ? 'No active contracts. Activate a contract first.' : ''}
+          >
+            <option value="">Select contract…</option>
+            {contracts.filter(c => c.status === 'ACTIVE').map(c => (
+              <option key={c.contractId} value={c.contractId}>
+                {c.vendorName || 'Unknown'} — {c.projectName || 'Unknown'} (#{c.contractId})
+              </option>
+            ))}
+          </FormSelect>
+          <FormInput
+            label="Item"
+            required
+            value={formD.item}
+            onChange={e => { setD('item')(e); if (e.target.value.trim()) setDErrors(p => ({ ...p, item: '' })); }}
+            placeholder="Item description (min 2 chars)"
+            error={dErrors.item}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Quantity *</label>
-              <input type="number" min="0.01" step="0.01" value={formD.quantity} onChange={e => { setD('quantity')(e); if (e.target.value) setDErrors(p => ({ ...p, quantity: '' })); }} placeholder="0.00"
-                className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${dErrors.quantity ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-              {dErrors.quantity && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{dErrors.quantity}</p>}
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Unit</label>
-              <input value={formD.unit} onChange={setD('unit')} placeholder="tons, kg, pcs…"
-                className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all" />
-            </div>
+            <FormInput
+              label="Quantity"
+              required
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={formD.quantity}
+              onChange={e => { setD('quantity')(e); if (e.target.value) setDErrors(p => ({ ...p, quantity: '' })); }}
+              placeholder="0.00"
+              error={dErrors.quantity}
+            />
+            <FormInput label="Unit" value={formD.unit} onChange={setD('unit')} placeholder="tons, kg, pcs…" />
           </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">
-              Delivery Date * <span className="text-slate-400 font-normal">(today or earlier)</span>
-            </label>
-            <input type="date" max={today} value={formD.date} onChange={e => { setD('date')(e); if (e.target.value) setDErrors(p => ({ ...p, date: '' })); }}
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${dErrors.date ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-            {dErrors.date && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{dErrors.date}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Remarks</label>
-            <textarea value={formD.remarks} onChange={setD('remarks')} rows={2} placeholder="Optional remarks…"
-              className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 resize-none transition-all" />
-          </div>
+          <FormInput
+            label="Delivery Date"
+            required
+            hint="(today or earlier)"
+            type="date"
+            max={today}
+            value={formD.date}
+            onChange={e => { setD('date')(e); if (e.target.value) setDErrors(p => ({ ...p, date: '' })); }}
+            error={dErrors.date}
+          />
+          <FormTextarea label="Remarks" value={formD.remarks} onChange={setD('remarks')} rows={2} placeholder="Optional remarks…" />
           <div className="flex gap-2 justify-end pt-2">
-            <button className="btn-secondary text-xs" onClick={() => { setShowCreateD(false); setFormD(EMPTY_DELIVERY); setDErrors({}); }}>Cancel</button>
-            <button className="btn-primary text-xs" onClick={handleCreateDelivery} disabled={saving}>
-              {saving ? <><Loader2 size={12} className="animate-spin" /> Creating…</> : 'Create Delivery'}
-            </button>
+            <Button variant="secondary" size="xs" onClick={() => { setShowCreateD(false); setFormD(EMPTY_DELIVERY); setDErrors({}); }}>Cancel</Button>
+            <Button variant="primary" size="xs" onClick={handleCreateDelivery} loading={saving}>Create Delivery</Button>
           </div>
         </div>
       </Modal>
 
-      {/* ── Create Service Modal ── */}
+      {/* Create Service Modal */}
       <Modal open={showCreateS} onClose={() => { setShowCreateS(false); setFormS(EMPTY_SERVICE); setSErrors({}); }} title="Create Service">
         <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Contract *</label>
-            <select value={formS.contractId} onChange={e => { setS('contractId')(e); if (e.target.value) setSErrors(p => ({ ...p, contractId: '' })); }}
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${sErrors.contractId ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`}>
-              <option value="">Select contract…</option>
-              {contracts.filter(c => c.status === 'ACTIVE').map(c => (
-                <option key={c.contractId} value={c.contractId}>
-                  {c.vendorName || 'Unknown'} — {c.projectName || 'Unknown'} (#{c.contractId})
-                </option>
-              ))}
-            </select>
-            {sErrors.contractId && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{sErrors.contractId}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Description * <span className="text-slate-400 font-normal">(min 10 chars)</span></label>
-            <textarea value={formS.description} onChange={e => { setS('description')(e); if (e.target.value.trim().length >= 10) setSErrors(p => ({ ...p, description: '' })); }} rows={3} placeholder="Describe the service to be provided…"
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 resize-none transition-all ${sErrors.description ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-            {sErrors.description && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{sErrors.description}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">
-              Expected Completion Date * <span className="text-slate-400 font-normal">(today or later)</span>
-            </label>
-            <input type="date" min={today} value={formS.completionDate} onChange={e => { setS('completionDate')(e); if (e.target.value) setSErrors(p => ({ ...p, completionDate: '' })); }}
-              className={`w-full text-sm bg-white/60 border rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 transition-all ${sErrors.completionDate ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'}`} />
-            {sErrors.completionDate && <p className="flex items-center gap-1 text-xs text-amber-500 mt-1"><AlertCircle size={11} className="shrink-0" />{sErrors.completionDate}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Remarks</label>
-            <textarea value={formS.remarks} onChange={setS('remarks')} rows={2} placeholder="Optional remarks…"
-              className="w-full text-sm bg-white/60 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 resize-none transition-all" />
-          </div>
+          <FormSelect
+            label="Contract"
+            required
+            value={formS.contractId}
+            onChange={e => { setS('contractId')(e); if (e.target.value) setSErrors(p => ({ ...p, contractId: '' })); }}
+            error={sErrors.contractId}
+          >
+            <option value="">Select contract…</option>
+            {contracts.filter(c => c.status === 'ACTIVE').map(c => (
+              <option key={c.contractId} value={c.contractId}>
+                {c.vendorName || 'Unknown'} — {c.projectName || 'Unknown'} (#{c.contractId})
+              </option>
+            ))}
+          </FormSelect>
+          <FormTextarea
+            label="Description"
+            required
+            hint="(min 10 chars)"
+            value={formS.description}
+            onChange={e => { setS('description')(e); if (e.target.value.trim().length >= 10) setSErrors(p => ({ ...p, description: '' })); }}
+            rows={3}
+            placeholder="Describe the service to be provided…"
+            error={sErrors.description}
+          />
+          <FormInput
+            label="Expected Completion Date"
+            required
+            hint="(today or later)"
+            type="date"
+            min={today}
+            value={formS.completionDate}
+            onChange={e => { setS('completionDate')(e); if (e.target.value) setSErrors(p => ({ ...p, completionDate: '' })); }}
+            error={sErrors.completionDate}
+          />
+          <FormTextarea label="Remarks" value={formS.remarks} onChange={setS('remarks')} rows={2} placeholder="Optional remarks…" />
           <div className="flex gap-2 justify-end pt-2">
-            <button className="btn-secondary text-xs" onClick={() => { setShowCreateS(false); setFormS(EMPTY_SERVICE); setSErrors({}); }}>Cancel</button>
-            <button className="btn-primary text-xs" onClick={handleCreateService} disabled={saving}>
-              {saving ? <><Loader2 size={12} className="animate-spin" /> Creating…</> : 'Create Service'}
-            </button>
+            <Button variant="secondary" size="xs" onClick={() => { setShowCreateS(false); setFormS(EMPTY_SERVICE); setSErrors({}); }}>Cancel</Button>
+            <Button variant="primary" size="xs" onClick={handleCreateService} loading={saving}>Create Service</Button>
           </div>
         </div>
       </Modal>
