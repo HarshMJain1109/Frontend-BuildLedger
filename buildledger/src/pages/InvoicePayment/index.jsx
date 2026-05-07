@@ -115,6 +115,9 @@ export default function InvoicePayment() {
   const [loading, setLoading]         = useState(true);
   const [showCreate, setShowCreate]   = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showReject, setShowReject]   = useState(false);
+  const [rejectInvoiceId, setRejectInvoiceId] = useState(null);
+  const [rejectReason,    setRejectReason]    = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [formI, setFormI]             = useState(EMPTY_INVOICE);
   const [formP, setFormP]             = useState(EMPTY_PAYMENT);
@@ -145,11 +148,22 @@ export default function InvoicePayment() {
     catch (err) { showErrors(err); }
   };
 
-  const handleReject = async (id) => {
-    const reason = prompt('Rejection reason:');
-    if (reason === null) return;
-    try { await rejectInvoice(id, reason); toast.success('Invoice rejected'); fetchData(); }
-    catch (err) { showErrors(err); }
+  const openRejectModal = (id) => {
+    setRejectInvoiceId(id);
+    setRejectReason('');
+    setShowReject(true);
+  };
+
+  const handleReject = async () => {
+    if (!rejectReason.trim()) { toast.error('Please provide a rejection reason'); return; }
+    try {
+      await rejectInvoice(rejectInvoiceId, rejectReason.trim());
+      toast.success('Invoice rejected');
+      setShowReject(false);
+      setRejectInvoiceId(null);
+      setRejectReason('');
+      fetchData();
+    } catch (err) { showErrors(err); }
   };
 
   const openPaymentModal = (invoice) => {
@@ -279,7 +293,7 @@ export default function InvoicePayment() {
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" />Pending</div>
           </div>
         </div>
-        <ApprovalPipeline invoices={invoices} onApprove={handleApprove} onReject={handleReject}
+        <ApprovalPipeline invoices={invoices} onApprove={handleApprove} onReject={openRejectModal}
           onPayment={openPaymentModal} canApprove={canApprove} isDark={isDark} />
       </div>
 
@@ -310,7 +324,7 @@ export default function InvoicePayment() {
                       {canApprove && inv.status === 'UNDER_REVIEW' && (
                         <>
                           <button onClick={() => handleApprove(inv.invoiceId)} className="text-xs text-green-600 dark:text-green-400 hover:underline font-medium">Approve</button>
-                          <button onClick={() => handleReject(inv.invoiceId)}  className="text-xs text-red-500 dark:text-red-400 hover:underline font-medium">Reject</button>
+                          <button onClick={() => openRejectModal(inv.invoiceId)} className="text-xs text-red-500 dark:text-red-400 hover:underline font-medium">Reject</button>
                         </>
                       )}
                       {canApprove && inv.status === 'APPROVED' && (
@@ -379,6 +393,35 @@ export default function InvoicePayment() {
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" size="xs" onClick={() => { setShowCreate(false); setFormI(EMPTY_INVOICE); setIErrors({}); }}>Cancel</Button>
             <Button variant="primary" size="xs" onClick={handleCreate} loading={saving}>Submit Invoice</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reject Invoice Modal */}
+      <Modal
+        open={showReject}
+        onClose={() => { setShowReject(false); setRejectInvoiceId(null); setRejectReason(''); }}
+        title={`Reject Invoice #${rejectInvoiceId}`}
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Provide a reason for rejection. This will be recorded against the invoice.
+          </p>
+          <FormTextarea
+            label="Rejection Reason"
+            required
+            value={rejectReason}
+            onChange={e => setRejectReason(e.target.value)}
+            rows={3}
+            placeholder="e.g. Amount mismatch, missing delivery confirmation, duplicate invoice…"
+          />
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="secondary" size="xs" onClick={() => { setShowReject(false); setRejectInvoiceId(null); setRejectReason(''); }}>
+              Cancel
+            </Button>
+            <Button variant="danger" size="xs" onClick={handleReject}>
+              Confirm Rejection
+            </Button>
           </div>
         </div>
       </Modal>

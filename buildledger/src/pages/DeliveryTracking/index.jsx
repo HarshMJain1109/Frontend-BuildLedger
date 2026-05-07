@@ -9,7 +9,8 @@ import {
 } from '../../components/ui';
 import { getAllDeliveries, createDelivery, updateDeliveryStatus } from '../../api/deliveries';
 import { getAllServices, createService, updateServiceStatus } from '../../api/services';
-import { getAllContracts } from '../../api/contracts';
+import { getAllContracts, getContractsByVendor } from '../../api/contracts';
+import { getAllVendors } from '../../api/vendors';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -163,9 +164,34 @@ export default function DeliveryTracking() {
     setLoading(true);
     try {
       const [d, s, c] = await Promise.allSettled([getAllDeliveries(), getAllServices(), getAllContracts()]);
-      setDeliveries(d.status === 'fulfilled' ? (d.value.data?.data || []) : []);
-      setServices(s.status === 'fulfilled'   ? (s.value.data?.data || []) : []);
-      setContracts(c.status === 'fulfilled'  ? (c.value.data?.data || []) : []);
+      const allDeliveries = d.status === 'fulfilled' ? (d.value.data?.data || []) : [];
+      const allServices   = s.status === 'fulfilled' ? (s.value.data?.data || []) : [];
+      const allContracts  = c.status === 'fulfilled' ? (c.value.data?.data || []) : [];
+
+      if (user?.role === 'VENDOR') {
+        // Scope everything to this vendor's contracts only
+        try {
+          const vendorRes    = await getAllVendors();
+          const allVendors   = vendorRes.data?.data || [];
+          const mine         = allVendors.find(v => v.userId === user.userId || v.username === user.username);
+          if (mine) {
+            const vcRes        = await getContractsByVendor(mine.vendorId);
+            const myContracts  = vcRes.data?.data || [];
+            const myContractIds = new Set(myContracts.map(co => co.contractId));
+            setContracts(myContracts);
+            setDeliveries(allDeliveries.filter(de => myContractIds.has(de.contractId)));
+            setServices(allServices.filter(sv => myContractIds.has(sv.contractId)));
+          } else {
+            setContracts([]); setDeliveries([]); setServices([]);
+          }
+        } catch {
+          setContracts([]); setDeliveries([]); setServices([]);
+        }
+      } else {
+        setDeliveries(allDeliveries);
+        setServices(allServices);
+        setContracts(allContracts);
+      }
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   };
@@ -454,7 +480,7 @@ export default function DeliveryTracking() {
             value={formD.contractId}
             onChange={e => { setD('contractId')(e); if (e.target.value) setDErrors(p => ({ ...p, contractId: '' })); }}
             error={dErrors.contractId}
-            hint={contracts.filter(c => c.status === 'ACTIVE').length === 0 ? 'No active contracts. Activate a contract first.' : ''}
+            hint={contracts.filter(c => c.status === 'ACTIVE').length === 0 ? 'No active contracts. A vendor must accept a contract first.' : ''}
           >
             <option value="">Select contract…</option>
             {contracts.filter(c => c.status === 'ACTIVE').map(c => (
