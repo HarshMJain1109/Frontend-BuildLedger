@@ -12,8 +12,9 @@ import {
 } from '../../components/ui';
 import {
   getAllVendors, deleteVendor, getVendorDocuments,
-  uploadVendorDocument, verifyDocument, getPendingDocuments, downloadVendorDocument, updateVendor,
+  uploadVendorDocument, verifyDocument, downloadVendorDocument, updateVendor,
 } from '../../api/vendors';
+import { getVendorPageSummary } from '../../api/reports';
 import { createInternalVendorUser } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -405,7 +406,7 @@ export default function VendorManagement() {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selected, setSelected]         = useState(null);
-  const [pendingDocs, setPendingDocs]   = useState([]);
+  const [vendorSummary, setVendorSummary] = useState(null);
 
   const handleVendorStatusChange = (vendorId, status) => {
     setVendors(prev => prev.map(v => (v.vendorId === vendorId ? { ...v, status } : v)));
@@ -415,23 +416,21 @@ export default function VendorManagement() {
   const fetchVendors = async () => {
     setLoading(true);
     try {
-      const res = await getAllVendors();
-      setVendors(res.data?.data || []);
+      const [vRes, sumRes] = await Promise.allSettled([getAllVendors(), getVendorPageSummary()]);
+      setVendors(vRes.status === 'fulfilled' ? (vRes.value.data?.data || []) : []);
+      setVendorSummary(sumRes.status === 'fulfilled' ? sumRes.value.data : null);
     } catch { toast.error('Failed to load vendors'); }
     finally { setLoading(false); }
   };
 
   const fetchPending = async () => {
     try {
-      const r = await getPendingDocuments();
-      setPendingDocs(toArray(r.data?.data));
-    } catch { setPendingDocs([]); }
+      const sumRes = await getVendorPageSummary();
+      setVendorSummary(sumRes.data);
+    } catch { /* summary refresh failed silently */ }
   };
 
-  useEffect(() => {
-    fetchVendors();
-    if (['ADMIN', 'PROJECT_MANAGER'].includes(user?.role)) fetchPending();
-  }, [user]);
+  useEffect(() => { fetchVendors(); }, []);
 
   const filtered = vendors.filter(v => {
     const q = search.toLowerCase();
@@ -457,12 +456,12 @@ export default function VendorManagement() {
       />
 
       {/* Pending docs alert */}
-      {pendingDocs.length > 0 && (
+      {(vendorSummary?.pendingDocumentsCount ?? 0) > 0 && (
         <div className="glass-card p-4 flex items-center gap-3 border-l-4 border-l-amber-400">
           <AlertTriangle size={16} className="text-amber-500 shrink-0" />
           <div>
             <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-              {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} pending review
+              {vendorSummary.pendingDocumentsCount} document{vendorSummary.pendingDocumentsCount > 1 ? 's' : ''} pending review
             </p>
             <p className="text-[10px] text-slate-400">Click a vendor to review and approve/reject documents</p>
           </div>
@@ -472,7 +471,7 @@ export default function VendorManagement() {
       {/* Status stats */}
       <div className="grid grid-cols-3 gap-3">
         {['ACTIVE', 'PENDING', 'REJECTED'].map(s => {
-          const count = vendors.filter(v => v.status === s).length;
+          const count = vendorSummary?.statusCounts?.[s] ?? 0;
           return (
             <div key={s}
               className={`glass-card p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-md

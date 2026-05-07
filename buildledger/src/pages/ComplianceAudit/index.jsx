@@ -11,6 +11,7 @@ import { getAllCompliance, createCompliance, updateComplianceStatus } from '../.
 import { getAllAudits, createAudit, updateAuditStatus } from '../../api/audits';
 import { getAllContracts } from '../../api/contracts';
 import { getAllUsers } from '../../api/users';
+import { getCompliancePageSummary } from '../../api/reports';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import toast from 'react-hot-toast';
@@ -107,10 +108,11 @@ const EMPTY_AUDIT      = { complianceOfficerId: '', scope: '', findings: '', dat
 export default function ComplianceAudit() {
   const { user } = useAuth();
   const { isDark } = useTheme();
-  const [compliance, setCompliance]   = useState([]);
-  const [audits, setAudits]           = useState([]);
-  const [contracts, setContracts]     = useState([]);
-  const [officers, setOfficers]       = useState([]);
+  const [compliance, setCompliance]           = useState([]);
+  const [audits, setAudits]                   = useState([]);
+  const [contracts, setContracts]             = useState([]);
+  const [officers, setOfficers]               = useState([]);
+  const [complianceSummary, setComplianceSummary] = useState(null);
   const [loading, setLoading]         = useState(true);
   const [showCreateC, setShowCreateC] = useState(false);
   const [showCreateA, setShowCreateA] = useState(false);
@@ -128,12 +130,13 @@ export default function ComplianceAudit() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [c, a, con, usr] = await Promise.allSettled([
-        getAllCompliance(), getAllAudits(), getAllContracts(), getAllUsers()
+      const [c, a, con, usr, sum] = await Promise.allSettled([
+        getAllCompliance(), getAllAudits(), getAllContracts(), getAllUsers(), getCompliancePageSummary(),
       ]);
       setCompliance(c.status === 'fulfilled'   ? (c.value.data?.data || []) : []);
       setAudits(a.status === 'fulfilled'       ? (a.value.data?.data || []) : []);
       setContracts(con.status === 'fulfilled'  ? (con.value.data?.data || []) : []);
+      setComplianceSummary(sum.status === 'fulfilled' ? sum.value.data : null);
       if (usr.status === 'fulfilled') {
         const allUsers = usr.value.data?.data || usr.value.data || [];
         setOfficers(allUsers.filter(u => u.role === 'COMPLIANCE_OFFICER' || u.role === 'ADMIN'));
@@ -144,16 +147,15 @@ export default function ComplianceAudit() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const compliant    = compliance.filter(c => c.status === 'PASSED' || c.status === 'WAIVED').length;
-  const nonCompliant = compliance.filter(c => c.status === 'FAILED').length;
-  const pending      = compliance.filter(c => c.status === 'PENDING' || c.status === 'UNDER_REVIEW').length;
-  const total        = compliance.length || 1;
-  const overallScore = Math.round((compliant / total) * 100);
+  const compliant    = complianceSummary?.compliant    ?? 0;
+  const nonCompliant = complianceSummary?.nonCompliant ?? 0;
+  const pending      = complianceSummary?.pending      ?? 0;
+  const overallScore = complianceSummary?.overallScore ?? 0;
 
-  const pieData = [
-    { name: 'Passed / Waived', value: compliant },
-    { name: 'Pending / Review', value: pending },
-    { name: 'Failed',           value: nonCompliant },
+  const pieData = complianceSummary?.pieChartData ?? [
+    { name: 'Passed / Waived', value: 0 },
+    { name: 'Pending / Review', value: 0 },
+    { name: 'Failed',           value: 0 },
   ];
 
   const handleCreateCompliance = async () => {

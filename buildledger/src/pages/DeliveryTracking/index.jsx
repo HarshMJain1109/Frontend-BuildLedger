@@ -11,6 +11,7 @@ import { getAllDeliveries, createDelivery, updateDeliveryStatus } from '../../ap
 import { getAllServices, createService, updateServiceStatus } from '../../api/services';
 import { getAllContracts, getContractsByVendor } from '../../api/contracts';
 import { getAllVendors } from '../../api/vendors';
+import { getDeliveryPageSummary } from '../../api/reports';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -142,9 +143,10 @@ const SERVICE_FILTER_OPTIONS = ['All', ...Object.keys(SERVICE_STATUS_MAP)].map(s
 export default function DeliveryTracking() {
   const { user } = useAuth();
   const [tab, setTab]               = useState('deliveries');
-  const [deliveries, setDeliveries] = useState([]);
-  const [services, setServices]     = useState([]);
-  const [contracts, setContracts]   = useState([]);
+  const [deliveries, setDeliveries]       = useState([]);
+  const [services, setServices]           = useState([]);
+  const [contracts, setContracts]         = useState([]);
+  const [deliverySummary, setDeliverySummary] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [filter, setFilter]         = useState('All');
   const [svcFilter, setSvcFilter]   = useState('All');
@@ -163,10 +165,13 @@ export default function DeliveryTracking() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [d, s, c] = await Promise.allSettled([getAllDeliveries(), getAllServices(), getAllContracts()]);
+      const [d, s, c, sum] = await Promise.allSettled([
+        getAllDeliveries(), getAllServices(), getAllContracts(), getDeliveryPageSummary(),
+      ]);
       const allDeliveries = d.status === 'fulfilled' ? (d.value.data?.data || []) : [];
       const allServices   = s.status === 'fulfilled' ? (s.value.data?.data || []) : [];
       const allContracts  = c.status === 'fulfilled' ? (c.value.data?.data || []) : [];
+      setDeliverySummary(sum.status === 'fulfilled' ? sum.value.data : null);
 
       if (user?.role === 'VENDOR') {
         // Scope everything to this vendor's contracts only
@@ -322,7 +327,7 @@ export default function DeliveryTracking() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {Object.entries(DELIVERY_STATUS_MAP).map(([s, cfg]) => {
               const Icon = cfg.icon;
-              const count = deliveries.filter(d => d.status === s).length;
+              const count = deliverySummary?.deliveryStatusCounts?.[s] ?? 0;
               return (
                 <div key={s} className="glass-card p-4 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${cfg.color}18` }}>
@@ -402,7 +407,7 @@ export default function DeliveryTracking() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Object.entries(SERVICE_STATUS_MAP).map(([s, cfg]) => {
-              const count = services.filter(x => x.status === s).length;
+              const count = deliverySummary?.serviceStatusCounts?.[s] ?? 0;
               return (
                 <div key={s} className="glass-card p-4 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${cfg.color}18` }}>
