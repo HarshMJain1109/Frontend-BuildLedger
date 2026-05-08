@@ -12,6 +12,7 @@ import { getAllServices, createService, updateServiceStatus } from '../../api/se
 import { getAllContracts, getContractsByVendor } from '../../api/contracts';
 import { getAllVendors } from '../../api/vendors';
 import { getDeliveryPageSummary } from '../../api/reports';
+import { checkCompliance } from '../../api/compliance';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -158,6 +159,7 @@ export default function DeliveryTracking() {
   const [updating, setUpdating]     = useState({});
   const [dErrors, setDErrors] = useState({});
   const [sErrors, setSErrors] = useState({});
+  const [complianceBlock, setComplianceBlock] = useState(null);
 
   const canCreate = ['ADMIN', 'VENDOR'].includes(user?.role);
   const today     = new Date().toISOString().split('T')[0];
@@ -232,6 +234,18 @@ export default function DeliveryTracking() {
 
   const handleDeliveryTransition = async (deliveryId, nextStatus) => {
     setUpdating(p => ({ ...p, [`d-${deliveryId}`]: true }));
+    if (nextStatus === 'ACCEPTED') {
+      try {
+        await checkCompliance(deliveryId, 'DELIVERY_CHECK');
+      } catch {
+        setComplianceBlock({
+          message: `Delivery #${deliveryId} cannot be accepted yet.`,
+          hint: `A DELIVERY_CHECK compliance record must exist for Reference ID ${deliveryId} with status PASSED or WAIVED.\n\nGo to Compliance & Audit → Create Record → Type: DELIVERY_CHECK → Reference ID: ${deliveryId}, then move it to PASSED.`,
+        });
+        setUpdating(p => ({ ...p, [`d-${deliveryId}`]: false }));
+        return;
+      }
+    }
     try {
       await updateDeliveryStatus(deliveryId, nextStatus);
       toast.success(`Delivery → ${DELIVERY_STATUS_MAP[nextStatus]?.label || nextStatus}`);
@@ -266,6 +280,18 @@ export default function DeliveryTracking() {
 
   const handleServiceTransition = async (serviceId, nextStatus) => {
     setUpdating(p => ({ ...p, [`s-${serviceId}`]: true }));
+    if (nextStatus === 'VERIFIED') {
+      try {
+        await checkCompliance(serviceId, 'SERVICE_CHECK');
+      } catch {
+        setComplianceBlock({
+          message: `Service #${serviceId} cannot be verified yet.`,
+          hint: `A SERVICE_CHECK compliance record must exist for Reference ID ${serviceId} with status PASSED or WAIVED.\n\nGo to Compliance & Audit → Create Record → Type: SERVICE_CHECK → Reference ID: ${serviceId}, then move it to PASSED.`,
+        });
+        setUpdating(p => ({ ...p, [`s-${serviceId}`]: false }));
+        return;
+      }
+    }
     try {
       await updateServiceStatus(serviceId, nextStatus);
       toast.success(`Service → ${SERVICE_STATUS_MAP[nextStatus]?.label || nextStatus}`);
@@ -575,6 +601,20 @@ export default function DeliveryTracking() {
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" size="xs" onClick={() => { setShowCreateS(false); setFormS(EMPTY_SERVICE); setSErrors({}); }}>Cancel</Button>
             <Button variant="primary" size="xs" onClick={handleCreateService} loading={saving}>Create Service</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Compliance Gate Modal */}
+      <Modal open={complianceBlock !== null} onClose={() => setComplianceBlock(null)} title="Compliance Check Required">
+        <div className="space-y-3">
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-700/40">
+            <span className="text-red-500 mt-0.5 shrink-0">✕</span>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">{complianceBlock?.message}</p>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-line leading-relaxed">{complianceBlock?.hint}</p>
+          <div className="flex justify-end pt-2">
+            <Button variant="secondary" size="xs" onClick={() => setComplianceBlock(null)}>Close</Button>
           </div>
         </div>
       </Modal>
