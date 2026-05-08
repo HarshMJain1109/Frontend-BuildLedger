@@ -318,7 +318,7 @@ export default function AdminPanel() {
       </SectionCard>
 
       {/* RBAC Panel */}
-      <div className="glass-card p-5">
+      {/* <div className="glass-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Shield size={16} className="text-blue-600" />
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -370,10 +370,10 @@ export default function AdminPanel() {
             Admin has full access and cannot be modified.
           </p>
         )}
-      </div>
+      </div> */}
 
       {/* System Settings */}
-      <div className="glass-card p-5">
+      {/* <div className="glass-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Settings size={16} className="text-blue-600" />
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -426,7 +426,7 @@ export default function AdminPanel() {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* Create/Edit User Modal */}
       <Modal
