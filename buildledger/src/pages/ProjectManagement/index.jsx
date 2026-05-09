@@ -340,9 +340,11 @@ function ProjectDetailModal({ project, managers, onClose, onRefresh, canManage, 
                   <FormInput label="Start Date" required dense type="date"
                     value={editForm.startDate} onChange={setF('startDate')} error={editErrors.startDate} />
                   <FormInput label="End Date" required dense type="date"
-                    value={editForm.endDate} onChange={setF('endDate')} error={editErrors.endDate} />
+                    value={editForm.endDate} min={editForm.startDate || undefined}
+                    onChange={setF('endDate')} error={editErrors.endDate} />
                   <FormInput label="Actual End Date" dense type="date"
-                    value={editForm.actualEndDate} onChange={setF('actualEndDate')} />
+                    value={editForm.actualEndDate} min={editForm.startDate || undefined}
+                    onChange={setF('actualEndDate')} error={editErrors.actualEndDate} />
                 </div>
                 <FormTextarea label="Description"
                   value={editForm.description} onChange={setF('description')} />
@@ -598,6 +600,7 @@ export default function ProjectManagement() {
                 error={formErrors.startDate} />
               <FormInput label="End Date" required type="date"
                 value={form.endDate}
+                min={form.startDate || undefined}
                 onChange={e => { set('endDate')(e); clearError('endDate'); }}
                 error={formErrors.endDate} />
             </div>

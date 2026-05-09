@@ -143,10 +143,10 @@ function LifecycleActions({ contract, onStatusChange, canManage }) {
 function ContractTermsTab({ contractId, isDraft, canManage }) {
   const [terms, setTerms]       = useState([]);
   const [loading, setLoading]   = useState(true);
-  const [newTerm, setNewTerm]   = useState('');
-  const [flag, setFlag]         = useState(false);
-  const [adding, setAdding]     = useState(false);
-  const [termError, setTermError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Each draft card: { id, description, complianceFlag, error }
+  const [cards, setCards] = useState([{ id: 1, description: '', complianceFlag: false, error: '' }]);
 
   const loadTerms = useCallback(async () => {
     setLoading(true);
@@ -159,27 +159,54 @@ function ContractTermsTab({ contractId, isDraft, canManage }) {
 
   useEffect(() => { loadTerms(); }, [loadTerms]);
 
-  const handleAdd = async () => {
-    if (!newTerm.trim()) { setTermError('Description is required'); return; }
-    setTermError('');
-    setAdding(true);
+  const updateCard = (id, field, value) =>
+    setCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value, error: '' } : c));
+
+  const addCard = () =>
+    setCards(prev => [...prev, { id: Date.now(), description: '', complianceFlag: false, error: '' }]);
+
+  const removeCard = (id) =>
+    setCards(prev => prev.filter(c => c.id !== id));
+
+  const handleSubmitAll = async () => {
+    // Validate all cards
+    let hasError = false;
+    setCards(prev => prev.map(c => {
+      if (!c.description.trim()) {
+        hasError = true;
+        return { ...c, error: 'Description is required' };
+      }
+      return c;
+    }));
+    if (hasError) return;
+
+    setSubmitting(true);
     try {
-      await addContractTerm(contractId, { description: newTerm, complianceFlag: flag });
-      setNewTerm('');
-      setFlag(false);
-      toast.success('Term added');
-      loadTerms();
+      for (const card of cards) {
+        await addContractTerm(contractId, {
+          description:    card.description.trim(),
+          complianceFlag: card.complianceFlag,
+        });
+      }
+      toast.success(`${cards.length} term${cards.length > 1 ? 's' : ''} added successfully`);
+      setCards([{ id: 1, description: '', complianceFlag: false, error: '' }]);
+      await loadTerms();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add term');
-    } finally { setAdding(false); }
+      toast.error(err.response?.data?.message || 'Failed to add terms');
+    } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-blue-500" /></div>;
+  if (loading) return (
+    <div className="flex justify-center py-6">
+      <Loader2 size={18} className="animate-spin text-blue-500" />
+    </div>
+  );
 
   return (
     <div className="space-y-3">
+      {/* Saved terms */}
       {terms.length === 0
-        ? <p className="text-sm text-slate-400 text-center py-4">No contract terms yet.</p>
+        ? <p className="text-sm text-slate-400 text-center py-2">No contract terms yet.</p>
         : terms.map((t, i) => (
           <div key={t.termId} className="flex items-start gap-3 p-3 rounded-xl"
             style={{ background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.1)' }}>
@@ -198,22 +225,61 @@ function ContractTermsTab({ contractId, isDraft, canManage }) {
         ))
       }
 
+      {/* Draft cards to add */}
       {canManage && isDraft && (
-        <div className="pt-2 space-y-2">
-          <FormTextarea
-            value={newTerm}
-            onChange={e => { setNewTerm(e.target.value); if (e.target.value.trim()) setTermError(''); }}
-            placeholder="Add a new contract term…"
-            rows={2}
-            error={termError}
-          />
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
-              <input type="checkbox" checked={flag} onChange={e => setFlag(e.target.checked)} className="accent-amber-500" />
-              Mark as compliance-required
-            </label>
-            <Button variant="primary" size="xs" onClick={handleAdd} disabled={adding || !newTerm.trim()} loading={adding}>
-              Add Term
+        <div className="space-y-3 pt-1">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            Add New Terms
+          </p>
+
+          {cards.map((card, idx) => (
+            <div key={card.id} className="p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 space-y-2"
+              style={{ background: 'rgba(148,163,184,0.05)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Term {terms.length + idx + 1}</span>
+                {cards.length > 1 && (
+                  <button onClick={() => removeCard(card.id)}
+                    className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1 transition-colors">
+                    <XCircle size={13} /> Remove
+                  </button>
+                )}
+              </div>
+
+              <FormTextarea
+                value={card.description}
+                onChange={e => updateCard(card.id, 'description', e.target.value)}
+                placeholder="Enter contract term description…"
+                rows={2}
+                error={card.error}
+              />
+
+              <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={card.complianceFlag}
+                  onChange={e => updateCard(card.id, 'complianceFlag', e.target.checked)}
+                  className="accent-amber-500"
+                />
+                Mark as compliance-required
+              </label>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={addCard}
+              className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline transition-all"
+            >
+              <Plus size={13} /> Add another term
+            </button>
+            <Button
+              variant="primary"
+              size="xs"
+              loading={submitting}
+              disabled={submitting}
+              onClick={handleSubmitAll}
+            >
+              Submit {cards.length > 1 ? `All ${cards.length} Terms` : 'Term'}
             </Button>
           </div>
         </div>
@@ -223,10 +289,10 @@ function ContractTermsTab({ contractId, isDraft, canManage }) {
 }
 
 function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, canManage }) {
-  const [tab, setTab]         = useState('details');
-  const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [saving, setSaving]   = useState(false);
+  const [tab, setTab]               = useState('details');
+  const [editing, setEditing]       = useState(false);
+  const [editForm, setEditForm]     = useState({});
+  const [saving, setSaving]         = useState(false);
   const [editErrors, setEditErrors] = useState({});
 
   const validateEdit = () => {
@@ -234,8 +300,24 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
     if (!editForm.vendorId)  e.vendorId  = 'Please select a vendor';
     if (!editForm.projectId) e.projectId = 'Please select a project';
     if (!editForm.value)     e.value     = 'Contract value is required';
+    if (editForm.value && Number(editForm.value) <= 0)
+      e.value = 'Contract value must be greater than 0';
+
     if (!editForm.startDate) e.startDate = 'Start date is required';
     if (!editForm.endDate)   e.endDate   = 'End date is required';
+
+    const selectedProject = projects.find(p => String(p.projectId) === String(editForm.projectId));
+    if (selectedProject) {
+      if (editForm.value && Number(editForm.value) > Number(selectedProject.budget))
+        e.value = `Contract value cannot exceed project budget ($${Number(selectedProject.budget).toLocaleString()})`;
+      if (editForm.startDate && editForm.startDate < selectedProject.startDate)
+        e.startDate = `Start date cannot be before project start (${selectedProject.startDate})`;
+      if (editForm.endDate && editForm.endDate > selectedProject.endDate)
+        e.endDate = `End date cannot exceed project end (${selectedProject.endDate})`;
+    }
+    if (editForm.startDate && editForm.endDate && editForm.endDate <= editForm.startDate)
+      e.endDate = 'End date must be after start date';
+
     setEditErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -248,11 +330,11 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
 
   const openEdit = () => {
     setEditForm({
-      vendorId:    contract.vendorId || '',
-      projectId:   contract.projectId || '',
-      startDate:   contract.startDate || '',
-      endDate:     contract.endDate || '',
-      value:       contract.value || '',
+      vendorId:    contract.vendorId    || '',
+      projectId:   contract.projectId   || '',
+      startDate:   contract.startDate   || '',
+      endDate:     contract.endDate     || '',
+      value:       contract.value       || '',
       description: contract.description || '',
     });
     setEditing(true);
@@ -301,8 +383,10 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
     }
   };
 
-  const setF = (k) => (e) => setEditForm((p) => ({ ...p, [k]: e.target.value }));
-  const activeVendors = vendors.filter(v => v.status === 'ACTIVE');
+  const setF           = (k) => (e) => setEditForm((p) => ({ ...p, [k]: e.target.value }));
+  const activeVendors  = vendors.filter(v => v.status === 'ACTIVE');
+  const activeProjects = projects.filter(p => p.status === 'ACTIVE' || p.status === 'PLANNING');
+  const editSelectedProject = projects.find(p => String(p.projectId) === String(editForm.projectId));
 
   return (
     <Modal open={!!contract} onClose={onClose} title={`Contract #${contract.contractId}`} wide>
@@ -345,9 +429,9 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
               <>
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    ['Vendor',    contract.vendorName || `Vendor #${contract.vendorId}`],
-                    ['Project',   contract.projectName || `Project #${contract.projectId}`],
-                    ['Value',     contract.value ? `$${Number(contract.value).toLocaleString()}` : '—'],
+                    ['Vendor',     contract.vendorName  || `Vendor #${contract.vendorId}`],
+                    ['Project',    contract.projectName || `Project #${contract.projectId}`],
+                    ['Value',      contract.value ? `$${Number(contract.value).toLocaleString()}` : '—'],
                     ['Start Date', contract.startDate || '—'],
                     ['End Date',   contract.endDate   || '—'],
                     ['Created',    contract.createdAt ? new Date(contract.createdAt).toLocaleDateString() : '—'],
@@ -380,12 +464,40 @@ function ContractDetailModal({ contract, vendors, projects, onClose, onRefresh, 
                   </FormSelect>
                   <FormSelect label="Project" required value={editForm.projectId} onChange={setF('projectId')} error={editErrors.projectId}>
                     <option value="">Select project…</option>
-                    {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.name}</option>)}
+                    {activeProjects.map(p => <option key={p.projectId} value={p.projectId}>{p.name}</option>)}
                   </FormSelect>
-                  <FormInput label="Start Date" required type="date" value={editForm.startDate} onChange={setF('startDate')} error={editErrors.startDate} />
-                  <FormInput label="End Date" required type="date" value={editForm.endDate} onChange={setF('endDate')} error={editErrors.endDate} />
+                  <FormInput
+                    label="Start Date" required type="date"
+                    value={editForm.startDate}
+                    min={editSelectedProject?.startDate || undefined}
+                    max={editSelectedProject?.endDate   || undefined}
+                    onChange={setF('startDate')}
+                    error={editErrors.startDate}
+                  />
+                  <FormInput
+                    label="End Date" required type="date"
+                    value={editForm.endDate}
+                    min={editForm.startDate || editSelectedProject?.startDate || undefined}
+                    max={editSelectedProject?.endDate || undefined}
+                    onChange={setF('endDate')}
+                    error={editErrors.endDate}
+                  />
                 </div>
-                <FormInput label="Contract Value ($)" required type="number" value={editForm.value} onChange={setF('value')} placeholder="0.00" error={editErrors.value} />
+                <FormInput
+                  label="Contract Value ($)" required type="number"
+                  min="0.01" step="0.01"
+                  value={editForm.value}
+                  max={editSelectedProject?.budget || undefined}
+                  onChange={setF('value')}
+                  placeholder="0.00"
+                  error={editErrors.value}
+                />
+                {editSelectedProject && (
+                  <p className="text-xs text-slate-400">
+                    Project budget: <span className="font-semibold text-slate-600 dark:text-slate-300">${Number(editSelectedProject.budget).toLocaleString()}</span>
+                    &nbsp;· Project dates: {editSelectedProject.startDate} → {editSelectedProject.endDate}
+                  </p>
+                )}
                 <FormTextarea label="Description" value={editForm.description} onChange={setF('description')} rows={3} />
                 <div className="flex gap-2 justify-end">
                   <Button variant="secondary" size="xs" onClick={() => { setEditing(false); setEditErrors({}); }}>Cancel</Button>
@@ -430,22 +542,37 @@ export default function ContractManagement() {
   const [contracts, setContracts]    = useState([]);
   const [vendors, setVendors]        = useState([]);
   const [projects, setProjects]      = useState([]);
-  const [contractSummary, setContractSummary] = useState(null);
   const [loading, setLoading]        = useState(true);
   const [selected, setSelected]      = useState(null);
   const [showCreate, setShowCreate]  = useState(false);
   const [form, setForm]              = useState(EMPTY_FORM);
   const [saving, setSaving]          = useState(false);
   const [filterStatus, setFilterStatus] = useState('ALL');
-  const [formErrors, setFormErrors]  = useState({});
+  const [formErrors, setFormErrors]     = useState({});
 
   const validateCreate = () => {
     const e = {};
-    if (!form.vendorId)   e.vendorId   = 'Please select a vendor';
-    if (!form.projectId)  e.projectId  = 'Please select a project';
-    if (!form.value)      e.value      = 'Contract value is required';
-    if (!form.startDate)  e.startDate  = 'Start date is required';
-    if (!form.endDate)    e.endDate    = 'End date is required';
+    if (!form.vendorId)  e.vendorId  = 'Please select a vendor';
+    if (!form.projectId) e.projectId = 'Please select a project';
+    if (!form.value)     e.value     = 'Contract value is required';
+    if (form.value && Number(form.value) <= 0)
+      e.value = 'Contract value must be greater than 0';
+
+    if (!form.startDate) e.startDate = 'Start date is required';
+    if (!form.endDate)   e.endDate   = 'End date is required';
+
+    const selectedProject = projects.find(p => String(p.projectId) === String(form.projectId));
+    if (selectedProject) {
+      if (form.value && Number(form.value) > Number(selectedProject.budget))
+        e.value = `Contract value cannot exceed project budget ($${Number(selectedProject.budget).toLocaleString()})`;
+      if (form.startDate && form.startDate < selectedProject.startDate)
+        e.startDate = `Start date cannot be before project start (${selectedProject.startDate})`;
+      if (form.endDate && form.endDate > selectedProject.endDate)
+        e.endDate = `End date cannot exceed project end (${selectedProject.endDate})`;
+    }
+    if (form.startDate && form.endDate && form.endDate <= form.startDate)
+      e.endDate = 'End date must be after start date';
+
     setFormErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -493,8 +620,11 @@ export default function ContractManagement() {
 
   const counts = contractSummary?.statusCounts ?? { ALL: 0, DRAFT: 0, ACTIVE: 0, COMPLETED: 0, TERMINATED: 0, EXPIRED: 0 };
 
-  const displayed     = filterStatus === 'ALL' ? contracts : contracts.filter(c => c.status === filterStatus);
-  const activeVendors = vendors.filter(v => v.status === 'ACTIVE');
+  const displayed      = filterStatus === 'ALL' ? contracts : contracts.filter(c => c.status === filterStatus);
+  const activeVendors  = vendors.filter(v => v.status === 'ACTIVE');
+  const activeProjects = projects.filter(p => p.status === 'ACTIVE' || p.status === 'PLANNING');
+
+  const createSelectedProject = projects.find(p => String(p.projectId) === String(form.projectId));
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 gap-2 text-slate-400">
@@ -607,7 +737,6 @@ export default function ContractManagement() {
           <FormSelect
             label="Vendor"
             required
-            hint="(must be ACTIVE)"
             value={form.vendorId}
             onChange={e => { set('vendorId')(e); if (e.target.value) setFormErrors(p => ({ ...p, vendorId: '' })); }}
             error={formErrors.vendorId || (activeVendors.length === 0 ? 'No active vendors. Approve a vendor first.' : '')}
@@ -623,11 +752,11 @@ export default function ContractManagement() {
             required
             value={form.projectId}
             onChange={e => { set('projectId')(e); if (e.target.value) setFormErrors(p => ({ ...p, projectId: '' })); }}
-            error={formErrors.projectId || (projects.length === 0 ? 'No projects found. Create a project first.' : '')}
+            error={formErrors.projectId || (activeProjects.length === 0 ? 'No active projects found. Create or activate a project first.' : '')}
           >
             <option value="">Select project…</option>
-            {projects.map(p => (
-              <option key={p.projectId} value={p.projectId}>{p.name || `Project #${p.projectId}`}</option>
+            {activeProjects.map(p => (
+              <option key={p.projectId} value={p.projectId}>{p.name || `Project #${p.projectId}`} ({p.status})</option>
             ))}
           </FormSelect>
 
@@ -637,11 +766,18 @@ export default function ContractManagement() {
             type="number"
             min="0.01"
             step="0.01"
+            max={createSelectedProject?.budget || undefined}
             value={form.value}
             onChange={e => { set('value')(e); if (e.target.value) setFormErrors(p => ({ ...p, value: '' })); }}
             placeholder="0.00"
             error={formErrors.value}
           />
+          {createSelectedProject && (
+            <p className="text-xs text-slate-400 -mt-2">
+              Project budget: <span className="font-semibold text-slate-600 dark:text-slate-300">${Number(createSelectedProject.budget).toLocaleString()}</span>
+              &nbsp;· Project dates: {createSelectedProject.startDate} → {createSelectedProject.endDate}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <FormInput
@@ -649,6 +785,8 @@ export default function ContractManagement() {
               required
               type="date"
               value={form.startDate}
+              min={createSelectedProject?.startDate || undefined}
+              max={createSelectedProject?.endDate   || undefined}
               onChange={e => { set('startDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, startDate: '' })); }}
               error={formErrors.startDate}
             />
@@ -657,6 +795,8 @@ export default function ContractManagement() {
               required
               type="date"
               value={form.endDate}
+              min={form.startDate || createSelectedProject?.startDate || undefined}
+              max={createSelectedProject?.endDate || undefined}
               onChange={e => { set('endDate')(e); if (e.target.value) setFormErrors(p => ({ ...p, endDate: '' })); }}
               error={formErrors.endDate}
             />
