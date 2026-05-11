@@ -1,10 +1,12 @@
 import api from './axios';
 
-export const getAllProjects        = ()            => api.get('/projects');
-export const getProjectById       = (id)           => api.get(`/projects/${id}`);
-export const createProject        = (data)         => api.post('/projects', data);
-export const updateProject        = (id, data)     => api.put(`/projects/${id}`, data);
-export const deleteProject        = (id)           => api.delete(`/projects/${id}`);
-export const updateProjectStatus  = (id, status)   => api.patch(`/projects/${id}/status?newStatus=${encodeURIComponent(status)}`);
-export const getProjectsByManager = (managerId)    => api.get(`/projects/manager/${managerId}`);
-
+export const getAllProjects        = ()          => api.get('/projects');
+export const getMyProjects        = ()          => api.get('/projects/my');
+export const getProjectById       = (id)         => api.get(`/projects/${id}`);
+export const createProject        = (data)       => api.post('/projects', data);
+export const updateProject        = (id, data)   => api.put(`/projects/${id}`, data);
+export const deleteProject        = (id)         => api.delete(`/projects/${id}`);
+export const updateProjectStatus  = (id, status) => api.patch(`/projects/${id}/status?newStatus=${encodeURIComponent(status)}`);
+export const getProjectsByManager = (managerId)  => api.get(`/projects/manager/${managerId}`);
+// PM-only: update description and actual end date
+export const updateProjectNotes   = (id, data)   => api.patch(`/projects/${id}/notes`, data);
